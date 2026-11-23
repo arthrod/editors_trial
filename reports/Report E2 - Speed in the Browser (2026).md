@@ -8,7 +8,7 @@ Nine editors that open Word documents in a web browser were each given the same 
 
 It is written to be read from here to the end of the results. The appendices after that hold everything needed to check it: how each time was taken, the machine, the rule a figure had to pass before it was printed, the full tables, what was not measured and why, and how to run it again.
 
-**The editors added to the trial in v0.11.0 are measured by a separate campaign.** BetterOffice, Nutrient, OnlyOffice (CryptPad build), OpenDoc and react-docx are timed in the browser by a campaign of their own, on the same machine type and with the same lanes and documents. That campaign is not yet measured; the section "The editors measured later", after the results, says so and is where its tables go. The results and the appendices are the earlier campaign's, unchanged, for the nine editors it covered. OpenDoc, BetterOffice and OnlyOffice are also timed without a browser in Report E. The measurements on editors.benchmarks.law of how the new tools load on a page use a different method and are not comparable with any table of this report.
+**The editors added to the trial in v0.11.0 are measured by a separate campaign.** BetterOffice, Nutrient, OnlyOffice (CryptPad build), OpenDoc and react-docx were timed in the browser by a campaign of their own, from 2026-11-22 to 2026-11-23, on the same machine type and with the same lanes and documents. Their results are in the section "The editors measured later", after the results, and the rest in Appendix K; their figures are not in the results or the other appendices. The results above that section and Appendices A to J are the earlier campaign's, unchanged, for the nine editors it covered; Appendix K is the later campaign's. OpenDoc, BetterOffice and OnlyOffice are also timed without a browser in Report E. The measurements on editors.benchmarks.law of how the new tools load on a page use a different method and are not comparable with any table of this report.
 
 ## How to read the tables
 
@@ -18,7 +18,7 @@ It is written to be read from here to the end of the results. The appendices aft
 - **"under 17 ms"** means the first picture of the screen that showed the change came less than one redraw after the action. The screen was redrawn 60 times a second, once every 16.7 ms, so times shorter than that cannot be told apart from each other.
 - **A range, such as "48 ms to 81 ms",** is printed where the repeated measurements disagreed too much to print one figure; its ends are what they gave. Neither end is the editor's time; read it as "somewhere about here, and not settled".
 - **"not measured"** means our tooling did not time the action there. It says nothing about whether the editor does it, or how quickly. **"crashed"** means the editor's page crashed in every launch of that test at that size; it says nothing about the other tests. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. **"does not apply"** is printed only where there was nothing to measure. A dash means the cell was not part of these runs.
-- **Every cell that is not a single figure has a line in Appendix J** saying what was measured there and why no single figure is printed.
+- **Every cell that is not a single figure has a line in Appendix J** saying what was measured there and why no single figure is printed; for the section "The editors measured later", the line is in Appendix K.
 - **The editors are in alphabetical order.** This report does not rank them.
 
 ## What the figures cannot tell you
@@ -163,102 +163,110 @@ At 500 words, 9 of 9 editors have a figure, from 567 MiB to 1.1 GiB; at 250,000 
 
 ## The editors measured later
 
-BetterOffice, Nutrient, OnlyOffice (CryptPad build), OpenDoc and react-docx were added to the trial in v0.11.0, after the campaign above was measured. They are measured by a separate campaign of their own, on the same machine type, with the same lanes, documents and two seeds; the report's build refuses a later campaign that differs in any of these.
+BetterOffice, Nutrient, OnlyOffice (CryptPad build), OpenDoc and react-docx were added to the trial in v0.11.0, after the campaign above was measured. They are measured by a separate campaign of their own, on the same machine type, with the same lanes and documents, run the same way; the report's build refuses a later campaign that differs in any of these.
 
-Read these tables beside the results above with that in mind. They come from other days and other virtual machines of the same type, so a small difference between one of these figures and one above can be the machine and not the editor. The later campaign is not yet measured, so it has not been compared with the campaign above. The rule a figure had to pass is the one in Appendix C, and each time is taken as Appendices A and D describe, with these differences:
+Read these figures beside the results above with that in mind. They come from other days and other virtual machines of the same type, so a small difference between one of these figures and one above can be the machine and not the editor. OnlyOffice's and OpenDoc's measured pages switch off some of their autocorrect settings, and Nutrient is a viewer whose SDK is loaded from its own CDN: Appendix K lists every way this campaign differs, with its machine, its runs and its full tables.
 
-- **Autocorrect switched off for OnlyOffice and OpenDoc.** Their measured pages switch sentence auto-capitalisation off. With their default, the typed "v." becomes "V.", and the typing check, which compares the whole typed text, fails. OnlyOffice's page also switches off its replacement of hyphens with dashes: its default turns the typed "Toledo -Flores" into "Toledo –Flores", a hyphen Word leaves alone. A user can switch both off in the editor's AutoCorrect settings; nothing else about either editor changes.
-- **Nutrient is a viewer.** Typing, the input lane and the edit burst do not apply to it. Its SDK is loaded from Nutrient's CDN on each cold load, so its load figures include that fetch and are not like-for-like with the editors served from the measuring machine.
-- **C07 and the click's own scroll.** When the click itself scrolls the page, C07 now judges the caret against where the clicked line ends up after that scroll, and only there. The campaign above was measured before this rule and did not record the click's scroll, so its C07 figures were judged against the line's place before the click.
-- **OnlyOffice's scrolling.** OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its C10 (scrolling) is to be measured from canvas pixels, by one wheel notch (a 45 px step in OnlyOffice; every other editor's C10 scrolls 600 px). Not yet measured.
+### Opening a document
 
-This campaign is not yet measured: no table of this section has a figure yet.
+From the moment the page is asked for the document until the first frame that shows it. The length of the text the editor holds is checked against the document (within 2 percent). For the editors that draw on a canvas, that text is read from the editor and not from the picture (Appendix D); content and formatting are not checked here.
 
-not yet measured
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | 500,000 words |
+|---|---|---|---|---|---|
+| BetterOffice | 1.1 s | 1.5 s | 2.2 s | 6.4 s | 15.0 s |
+| Nutrient | 4.4 s | 4.7 s | 7.3 s | 18.7 s | no figure |
+| OnlyOffice (CryptPad build) | 1.9 s | 2.0 s | 2.5 s | 4.0 s | 5.8 s |
+| OpenDoc | 919 ms to 1.0 s | 1.1 s | 1.5 s | 2.8 s | 4.7 s |
+| react-docx | 720 ms | 1.2 s | 4.8 s | no figure | no figure |
 
-### The machine and the runs
+At 500 words, 4 of 5 editors have a figure, from 720 ms to 4.4 s; at 500,000 words, 3 of 5, from 4.7 s to 15.0 s.
 
-Relaxed bounds: Clock skew: 5 ms. Ready/navigation load timeouts: 300 s by default, 600 s on the largest document workload; C14 (large-document scaling) gives each wait of a load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1000 s. Sparse-witness settle onset floor: 100 ms. CPU throttle tolerance: max(100 ms, 10% of the sample span). Witness anchor lag: max(3 frame intervals, 250 ms). Typing/document content length tolerance: 2% for the prose documents; the complex document (complex-corpus) is accepted at 75% to 125% of the expected length.
+### Typing one character
 
-not yet measured
+From a key press until the frame in which that character is on screen, in a document that is already open.
 
-not yet measured
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| BetterOffice | 139 ms (by pixels) | 179 ms (by pixels) | 231 ms (by pixels) | 483 ms (by pixels) |
+| Nutrient | does not apply | does not apply | does not apply | does not apply |
+| OnlyOffice (CryptPad build) | 43 ms (by pixels) | 37 ms (by pixels) | 52 ms (by pixels) | 52 ms (by pixels) |
+| OpenDoc | 75 ms (by pixels) | 80 ms (by pixels) | 116 ms (by pixels) | 143 ms (by pixels) |
+| react-docx | 30 ms | 102 ms | no figure | no figure |
 
-### The full tables
+At 500 words, 4 of 5 editors have a figure, from 30 ms to 139 ms (by pixels); at 250,000 words, 3 of 5, from 52 ms (by pixels) to 483 ms (by pixels).
 
-#### First visible content (C03)
+A time marked "(by pixels)" ends at the first frame that shows the whole settled change the key press made on the caret's line. The editor draws its text on a canvas, where the harness cannot read a character's outline. Where the editor reports its caret's place, the caret's own columns are left out; where it does not, the change must reach 100 pixels, more than any caret. The smallest such change on any key press behind these times was 1842 pixels (issue #245).
 
-not yet measured
+### Clicking to place the caret
 
-#### Deferred work (C04)
+From a click in the text until the next frame the editor paints.
 
-not yet measured
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| BetterOffice | 26 ms | 28 ms | 31 ms | 33 ms |
+| Nutrient | does not apply | does not apply | does not apply | does not apply |
+| OnlyOffice (CryptPad build) | 44 ms | 44 ms | 45 ms | 37 ms |
+| OpenDoc | 28 ms | 29 ms | 28 ms | 62 ms |
+| react-docx | 29 ms | 69 ms | 766 ms | 4.5 s |
 
-#### Single-edit responsiveness (C05)
+At 500 words, 4 of 5 editors have a figure, from 26 ms to 44 ms; at 250,000 words, 4 of 5, from 33 ms to 4.5 s.
 
-not yet measured
+### Pasting a block of text
 
-#### Sustained typing (C06)
+From the paste of a 1,500-character block until the first frame in which the page visibly changed.
 
-not yet measured
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| BetterOffice | 279 ms | 444 ms | 543 ms | 833 ms |
+| Nutrient | does not apply | does not apply | does not apply | does not apply |
+| OnlyOffice (CryptPad build) | 65 ms | 58 ms | 65 ms | 61 ms |
+| OpenDoc | 125 ms | 140 ms | 175 ms | 216 ms |
+| react-docx | no figure | 129 ms | 3.3 s | 10.2 s |
 
-#### Cursor and selection (C07)
+At 500 words, 3 of 5 editors have a figure, from 65 ms to 279 ms; at 250,000 words, 4 of 5, from 61 ms to 10.2 s.
 
-not yet measured
+### Undoing
 
-#### Clipboard and bulk editing (C08)
+From the undo of one typed character until the first frame that differs.
 
-not yet measured
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| BetterOffice | 123 ms | 153 ms | 93 ms | 336 ms to 381 ms |
+| Nutrient | does not apply | does not apply | does not apply | does not apply |
+| OnlyOffice (CryptPad build) | 45 ms | 34 ms | 44 ms | 50 ms |
+| OpenDoc | 69 ms | 71 ms | 122 ms | 155 ms |
+| react-docx | no figure | no figure | no figure | no figure |
 
-#### Undo and redo (C09)
+At 500 words, 3 of 5 editors have a figure, from 45 ms to 123 ms; at 250,000 words, 2 of 5, from 50 ms to 155 ms.
 
-not yet measured
+### Scrolling
 
-#### Scrolling (C10)
+From a scroll of the document until the first frame in which its content has moved.
 
-not yet measured
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| BetterOffice | under 17 ms | 18 ms | 19 ms | 25 ms |
+| Nutrient | 39 ms | 45 ms | 50 ms | 56 ms |
+| OnlyOffice (CryptPad build) | 41 ms | 29 ms | 29 ms | 41 ms |
+| OpenDoc | 15 ms | 22 ms | 22 ms | 32 ms |
+| react-docx | under 17 ms | under 17 ms | 26 ms | 121 ms |
 
-#### Initial layout (C11)
+At 500 words, 5 of 5 editors have a figure, from under 17 ms to 41 ms; at 250,000 words, 5 of 5, from 25 ms to 121 ms.
 
-not yet measured
+### Memory with the document open
 
-#### Incremental reflow (C12)
+The memory of the whole browser with the document open, read two seconds after a short burst of typing. It includes the browser itself, so it is not the editor alone.
 
-not yet measured
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| BetterOffice | 788 MiB | 946 MiB | 1.1 GiB | 1.8 GiB |
+| Nutrient | 743 MiB | 815 MiB | 777 MiB | 854 MiB |
+| OnlyOffice (CryptPad build) | 835 MiB | 866 MiB | 902 MiB | 1003 MiB |
+| OpenDoc | 867 MiB | 873 MiB | 971 MiB | 1.1 GiB |
+| react-docx | 560 MiB | 594 MiB | 837 MiB | 1.9 GiB |
 
-#### Global invalidation (C13)
+At 500 words, 5 of 5 editors have a figure, from 560 MiB to 867 MiB; at 250,000 words, 5 of 5, from 854 MiB to 1.9 GiB.
 
-not yet measured
-
-#### Large-document scaling (C14)
-
-not yet measured
-
-#### Search and replace (C15)
-
-not yet measured
-
-#### Memory by phase (C17)
-
-not yet measured
-
-#### Resources while opening and editing (B8)
-
-not yet measured
-
-#### Typing marathon (B9)
-
-not yet measured
-
-### Cells whose two rounds did not agree
-
-not yet measured
-
-### Every results cell that is not a single figure, and why
-
-One line for every cell of this section's results tables that is not a single figure, with the reasons each launch recorded, as in Appendix J.
-
-not yet measured
 
 ## Appendix A — What was measured, and how each time was taken
 
@@ -1563,7 +1571,7 @@ WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6;
 - **LibreOffice (baseline):** LibreOffice is the conversion baseline of the headless report, not a browser editor.
 - **office-open:** office-open is a library with no editing surface to paint, so no browser criterion applies.
 
-BetterOffice, Nutrient, OnlyOffice (CryptPad build), OpenDoc and react-docx are not listed here: they are not part of the campaign this appendix describes. A campaign of their own measures them, and the section "The editors measured later" gives its tables and names any of them it has no data for.
+BetterOffice, Nutrient, OnlyOffice (CryptPad build), OpenDoc and react-docx are not listed here: they are not part of the campaign this appendix describes. A campaign of their own measures them: the section "The editors measured later" gives its results and names any of them it has no data for, and Appendix K its full tables.
 
 ## Appendix G — Cells whose two rounds did not agree
 
@@ -1820,3 +1828,958 @@ The results at the top print a single figure only where two rounds of measuremen
 | Scrolling | WordCraft | 500 words | 130 ms to 195 ms | The first round gave 130 ms (10 launches) and the second 195 ms (9 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
 | Scrolling | WordCraft | 50,000 words | under 17 ms to 131 ms | The first round gave 131 ms (10 launches) and the second under 17 ms (10 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
 | Memory with the document open | canvas-editor + plugin | 250,000 words | crashed | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the editor's page crashed. |
+
+## Appendix K — The editors measured later: what differs, the machine, the runs and the full tables
+
+This appendix is the later campaign's own, for the editors in the section "The editors measured later". Both campaigns ran on shared_guarded hosts with AMD EPYC 7R13 Processor, a CPU quota of 8.0 and 64 logical CPUs. The campaign above is carried over from facts-v0.10.5.json, and every document this campaign opened has the SHA-256 of a document the campaign above opened under the same name, as `build/e2_published_documents.json` records them from its run summaries. The document micro-search is generated per sample, so it is compared by its generator, not by hash: the generator's code and settings are the ones the campaign above ran with (checked by SHA-256). The rule a figure had to pass is the one in Appendix C, and each time is taken as Appendices A and D describe, with these differences:
+
+- **Autocorrect switched off for OnlyOffice and OpenDoc.** Their measured pages switch sentence auto-capitalisation off. With their default, the typed "v." becomes "V.", and the typing check, which compares the whole typed text, fails. OnlyOffice's page also switches off its replacement of hyphens with dashes: its default turns the typed "Toledo -Flores" into "Toledo –Flores", a hyphen Word leaves alone. OpenDoc's page also switches off automatic lists: like Word, it turns a typed "1. " at the start of a paragraph into list numbering, and its reader reports that the paragraph is a list but not the number it paints, so the check cannot credit the typed "1.". OpenDoc's page also switches off its replace-text-as-you-type table, which turns a typed lone "i" into "I" ("Pet. i, 5-6" becomes "Pet. I, 5-6"), a case change the check counts as a mismatch; as when a user switches that table off, OpenDoc's dash replacement goes off with it. A user can switch each of these off in the editor's AutoCorrect settings; nothing else about either editor changes.
+- **Nutrient is a viewer.** Typing, the input lane and the edit burst do not apply to it. Its SDK is loaded from Nutrient's CDN on each cold load, so its load figures include that fetch and are not like-for-like with the editors served from the measuring machine.
+- **C07 and the click's own scroll.** When the click itself scrolls the page, C07 now judges the caret against where the clicked line ends up after that scroll, and only there. The campaign above was measured before this rule and did not record the click's scroll, so its C07 figures were judged against the line's place before the click.
+- **OnlyOffice's scrolling.** OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its C10 (scrolling) is measured from canvas pixels. The scroll is one wheel notch over the page, which OnlyOffice turns into a 45 px step whatever the wheel's size; every other editor's C10 scrolls its page by 600 px. The time ends at the first frame that changes, and that frame must show the picture before the scroll moved up by it, or the sample is refused.
+
+333 of 560 scheduled editor/criterion/measure cells reproduced between the two seeds. 18 run folders contributed 152 jobs (seed 1: 76 jobs; seed 2: 76 jobs); earliest job start 2026-11-22, latest job end 2026-11-23.
+
+### The machine and the runs
+
+Relaxed bounds: Clock skew: 5 ms. Ready/navigation load timeouts: 300 s by default, 600 s on the largest document workload; C14 (large-document scaling) gives each wait of a load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1000 s. Sparse-witness settle onset floor: 100 ms. CPU throttle tolerance: max(100 ms, 10% of the sample span). Witness anchor lag: max(3 frame intervals, 250 ms). Typing/document content length tolerance: 2% for the prose documents; the complex document (complex-corpus) is accepted at 75% to 125% of the expected length.
+
+Each seed ran on the same hardware class (shared_guarded) on separate virtual machines (Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc), not on one host. A Space name is a machine name: the editors measured are those in the tables. Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-superdoc are machines named for editors this campaign does not measure.
+
+Seed 1 — 76 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (54 jobs), linux 6.12.115-140.210.amzn2023.x86_64 (22 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 0 of 1710 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 2.1 to 20.9, median 10.2.
+
+Seed 2 — 76 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (56 jobs), linux 6.12.115-140.210.amzn2023.x86_64 (20 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 0 of 1710 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 1.8 to 20.7, median 8.3.
+
+Editor pins (built-editor tree SHA-256 of every attempt that ran, in every run folder): BetterOffice: 05b0f162a22bf0a56f5769b04706f1534d3f36829df00675061f31e1d712e165; Nutrient: 9b95e5f587853cf87160f045bec935c2df6a048cf5c5c6ff5e23bec045a2ab86; OnlyOffice (CryptPad build): 3ab539c4b0552425585496c7fcceec6e201cf8ca426f18358c000910cdea145d, c1207eabd47041c86041b58d9bf2166be2beaa772f355b9d8c72dd7923f1d8d9; OpenDoc: 78bb78b33855c135faba0544f5fd6026cc71ee3de5b144b046829fab11d5bca0; react-docx: bac2b64c9e8b89efc9c26ce3057fe3f4b2759dcc86fd12440760a7c4fc00267b. OnlyOffice (CryptPad build)'s re-measured cells (jobs 46, 47, 118, 119) ran on built-editor tree c1207eabd47041c86041b58d9bf2166be2beaa772f355b9d8c72dd7923f1d8d9; its cells not re-measured, on 3ab539c4b0552425585496c7fcceec6e201cf8ca426f18358c000910cdea145d: its measured page differs by one line, hyphens-with-dash off (owner's decision, disclosed above), which is built into OnlyOffice's host tree; the vendor editor (CryptPad's build) is the same.
+
+152 jobs in 18 run folders — seed 1: 76 jobs; seed 2: 76 jobs. Dates: 2026-11-22 to 2026-11-23.
+
+### The full tables
+
+#### First visible content (C03)
+
+| Editor | Workload | Measure | C03 |
+|---|---|---|---|
+| BetterOffice | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_unverifiable: readParagraphs refused: {"failure":{"code":"unsupported","message":"paragraph \"body:p11\" has a pending paragraph-mark revision…. |
+| Nutrient | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_mismatch. |
+| OnlyOffice (CryptPad build) | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | process_cold_fs_warm | not reproduced (first 1185.5 ms; second 1028.5 ms) |
+| react-docx | complex-corpus | process_cold_fs_warm | 1119.5 ms; 0% sub-frame launches; p90 1199.6 ms; n = 10 of 10 |
+| BetterOffice | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_unverifiable: readParagraphs refused: {"failure":{"code":"unsupported","message":"paragraph \"body:p11\" has a pending paragraph-mark revision…. |
+| Nutrient | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_mismatch. |
+| OnlyOffice (CryptPad build) | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | warm_steady | not reproduced (first 780.5 ms; second 653.0 ms) |
+| react-docx | complex-corpus | warm_steady | 659.0 ms; 0% sub-frame launches; p90 686.2 ms; n = 10 of 10 |
+| BetterOffice | prose-250kw | process_cold_fs_warm | 11309.0 ms; 0% sub-frame launches; p90 11841.9 ms; n = 10 of 10 |
+| Nutrient | prose-250kw | process_cold_fs_warm | 18394.5 ms; 0% sub-frame launches; p90 18913.6 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-250kw | process_cold_fs_warm | 3992.0 ms; 0% sub-frame launches; p90 4112.4 ms; n = 10 of 10 |
+| OpenDoc | prose-250kw | process_cold_fs_warm | 2890.5 ms; 0% sub-frame launches; p90 3161.1 ms; n = 10 of 10 |
+| react-docx | prose-250kw | process_cold_fs_warm | 8808.5 ms; 0% sub-frame launches; p90 9112.1 ms; n = 10 of 10 |
+| BetterOffice | prose-250kw | warm_steady | 10506.0 ms; 0% sub-frame launches; p90 10958.5 ms; n = 10 of 10 |
+| Nutrient | prose-250kw | warm_steady | 17145.5 ms; 0% sub-frame launches; p90 18089.1 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-250kw | warm_steady | 3579.0 ms; 0% sub-frame launches; p90 3750.2 ms; n = 10 of 10 |
+| OpenDoc | prose-250kw | warm_steady | 2511.5 ms; 0% sub-frame launches; p90 2634.1 ms; n = 10 of 10 |
+| react-docx | prose-250kw | warm_steady | not reproduced (first 8353.5 ms; second 7384.5 ms) |
+| BetterOffice | prose-500w | process_cold_fs_warm | 1041.5 ms; 0% sub-frame launches; p90 1141.7 ms; n = 10 of 10 |
+| Nutrient | prose-500w | process_cold_fs_warm | 3979.5 ms; 0% sub-frame launches; p90 4054.9 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-500w | process_cold_fs_warm | 1996.5 ms; 0% sub-frame launches; p90 2169.3 ms; n = 10 of 10 |
+| OpenDoc | prose-500w | process_cold_fs_warm | 1006.5 ms; 0% sub-frame launches; p90 1160.2 ms; n = 10 of 10 |
+| react-docx | prose-500w | process_cold_fs_warm | 659.5 ms; 0% sub-frame launches; p90 712.5 ms; n = 10 of 10 |
+| BetterOffice | prose-500w | warm_steady | 614.0 ms; 0% sub-frame launches; p90 707.2 ms; n = 10 of 10 |
+| Nutrient | prose-500w | warm_steady | 3070.0 ms; 0% sub-frame launches; p90 3199.4 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-500w | warm_steady | 1595.5 ms; 0% sub-frame launches; p90 1712.4 ms; n = 10 of 10 |
+| OpenDoc | prose-500w | warm_steady | not reproduced (first 759.0 ms; second 666.0 ms) |
+| react-docx | prose-500w | warm_steady | 420.0 ms; 0% sub-frame launches; p90 445.0 ms; n = 10 of 10 |
+| BetterOffice | prose-50kw | process_cold_fs_warm | 3437.5 ms; 0% sub-frame launches; p90 3615.6 ms; n = 10 of 10 |
+| Nutrient | prose-50kw | process_cold_fs_warm | 6663.0 ms; 0% sub-frame launches; p90 6975.5 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-50kw | process_cold_fs_warm | 2370.5 ms; 0% sub-frame launches; p90 2446.5 ms; n = 10 of 10 |
+| OpenDoc | prose-50kw | process_cold_fs_warm | 1385.5 ms; 0% sub-frame launches; p90 1494.9 ms; n = 10 of 10 |
+| react-docx | prose-50kw | process_cold_fs_warm | 2286.0 ms; 0% sub-frame launches; p90 2404.8 ms; n = 10 of 10 |
+| BetterOffice | prose-50kw | warm_steady | 2673.5 ms; 0% sub-frame launches; p90 2875.0 ms; n = 10 of 10 |
+| Nutrient | prose-50kw | warm_steady | 5899.0 ms; 0% sub-frame launches; p90 6104.3 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-50kw | warm_steady | 2021.5 ms; 0% sub-frame launches; p90 2116.9 ms; n = 10 of 10 |
+| OpenDoc | prose-50kw | warm_steady | 1075.5 ms; 0% sub-frame launches; p90 1185.4 ms; n = 10 of 10 |
+| react-docx | prose-50kw | warm_steady | 1867.0 ms; 0% sub-frame launches; p90 2124.0 ms; n = 10 of 10 |
+| BetterOffice | prose-5kw | process_cold_fs_warm | 1878.0 ms; 0% sub-frame launches; p90 2144.6 ms; n = 10 of 10 |
+| Nutrient | prose-5kw | process_cold_fs_warm | 4056.5 ms; 0% sub-frame launches; p90 4594.8 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-5kw | process_cold_fs_warm | 1942.0 ms; 0% sub-frame launches; p90 2371.5 ms; n = 10 of 10 |
+| OpenDoc | prose-5kw | process_cold_fs_warm | 1081.5 ms; 0% sub-frame launches; p90 1219.9 ms; n = 10 of 10 |
+| react-docx | prose-5kw | process_cold_fs_warm | 877.0 ms; 0% sub-frame launches; p90 933.4 ms; n = 10 of 10 |
+| BetterOffice | prose-5kw | warm_steady | 1283.0 ms; 0% sub-frame launches; p90 1413.6 ms; n = 10 of 10 |
+| Nutrient | prose-5kw | warm_steady | 3167.0 ms; 0% sub-frame launches; p90 3771.2 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-5kw | warm_steady | 1677.5 ms; 0% sub-frame launches; p90 2126.8 ms; n = 10 of 10 |
+| OpenDoc | prose-5kw | warm_steady | 719.5 ms; 0% sub-frame launches; p90 800.2 ms; n = 10 of 10 |
+| react-docx | prose-5kw | warm_steady | 645.0 ms; 0% sub-frame launches; p90 750.4 ms; n = 10 of 10 |
+
+#### Deferred work (C04)
+
+| Editor | Workload | C04 |
+|---|---|---|
+| BetterOffice | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Nutrient | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| react-docx | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| BetterOffice | prose-250kw | second: not enough samples (n = 3 of 10; reasons not_applicable: 7) Recorded reason: no_deferred_work. |
+| Nutrient | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-250kw | not reproduced (first 804.6 ms; second 289.9 ms); first: 3 of 10 launches failed: not_applicable: 3 Recorded reason: no_deferred_work. |
+| OpenDoc | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| react-docx | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| BetterOffice | prose-500w | first: not enough samples (n = 1 of 10; reasons not_applicable: 9); second: not enough samples (n = 2 of 10; reasons not_applicable: 8) Recorded reason: no_deferred_work. |
+| Nutrient | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-500w | not reproduced (first 64.0 ms; second 57.5 ms) |
+| OpenDoc | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| react-docx | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| BetterOffice | prose-50kw | second: not enough samples (n = 4 of 10; reasons not_applicable: 6) Recorded reason: no_deferred_work. |
+| Nutrient | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-50kw | 368.4 ms; p90 445.0 ms; n = 10 of 10 |
+| OpenDoc | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| react-docx | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| BetterOffice | prose-5kw | not reproduced (first 60.8 ms; second 91.5 ms) |
+| Nutrient | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-5kw | first: not enough samples (n = 4 of 10; reasons not_applicable: 6) Recorded reason: no_deferred_work. |
+| OpenDoc | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| react-docx | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+
+#### Single-edit responsiveness (C05)
+
+| Editor | Workload | Measure | C05 |
+|---|---|---|---|
+| BetterOffice | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_unverifiable: readParagraphs refused: {"failure":{"code":"unsupported","message":"paragraph \"body:p11\" has a pending paragraph-mark revision…. |
+| Nutrient | complex-corpus | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | process_cold_fs_warm | 81.1 ms; 0% sub-frame launches; p90 96.7 ms; n = 10 of 10; by pixels, least change on any key press 18 pixels (#245) |
+| react-docx | complex-corpus | process_cold_fs_warm | 63.7 ms; 0% sub-frame launches; p90 76.5 ms; n = 10 of 10 |
+| BetterOffice | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_unverifiable: readParagraphs refused: {"failure":{"code":"unsupported","message":"paragraph \"body:p11\" has a pending paragraph-mark revision…. |
+| Nutrient | complex-corpus | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | warm_steady | 72.3 ms; 0% sub-frame launches; p90 80.9 ms; n = 10 of 10; by pixels, least change on any key press 18 pixels (#245) |
+| react-docx | complex-corpus | warm_steady | 50.6 ms; 0% sub-frame launches; p90 60.3 ms; n = 10 of 10 |
+| BetterOffice | prose-250kw | process_cold_fs_warm | 566.2 ms; 0% sub-frame launches; p90 618.3 ms; n = 10 of 10; by pixels, least change on any key press 2057 pixels (#245) |
+| Nutrient | prose-250kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-250kw | process_cold_fs_warm | not reproduced (first 52.7 ms; second 73.5 ms) |
+| OpenDoc | prose-250kw | process_cold_fs_warm | not reproduced (first 172.1 ms; second 154.9 ms) |
+| react-docx | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: expected_edit_not_confirmed. |
+| BetterOffice | prose-250kw | warm_steady | 504.1 ms; 0% sub-frame launches; p90 526.2 ms; n = 10 of 10; by pixels, least change on any key press 2057 pixels (#245) |
+| Nutrient | prose-250kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-250kw | warm_steady | 44.2 ms; 0% sub-frame launches; p90 63.8 ms; n = 10 of 10; by pixels, least change on any key press 1960 pixels (#245) |
+| OpenDoc | prose-250kw | warm_steady | 150.0 ms; 0% sub-frame launches; p90 161.2 ms; n = 10 of 10; by pixels, least change on any key press 1842 pixels (#245) |
+| react-docx | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: expected_edit_not_confirmed. |
+| BetterOffice | prose-500w | process_cold_fs_warm | 198.5 ms; 0% sub-frame launches; p90 234.8 ms; n = 10 of 10; by pixels, least change on any key press 2057 pixels (#245) |
+| Nutrient | prose-500w | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-500w | process_cold_fs_warm | 52.3 ms; 0% sub-frame launches; p90 77.8 ms; n = 10 of 10; by pixels, least change on any key press 1960 pixels (#245) |
+| OpenDoc | prose-500w | process_cold_fs_warm | 85.3 ms; 0% sub-frame launches; p90 108.7 ms; n = 10 of 10; by pixels, least change on any key press 38 pixels (#245) |
+| react-docx | prose-500w | process_cold_fs_warm | 35.9 ms; 0% sub-frame launches; p90 47.6 ms; n = 10 of 10 |
+| BetterOffice | prose-500w | warm_steady | 141.1 ms; 0% sub-frame launches; p90 181.0 ms; n = 10 of 10; by pixels, least change on any key press 2057 pixels (#245) |
+| Nutrient | prose-500w | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-500w | warm_steady | 44.0 ms; 0% sub-frame launches; p90 61.8 ms; n = 10 of 10; by pixels, least change on any key press 1960 pixels (#245) |
+| OpenDoc | prose-500w | warm_steady | 78.6 ms; 0% sub-frame launches; p90 90.5 ms; n = 10 of 10; by pixels, least change on any key press 1842 pixels (#245) |
+| react-docx | prose-500w | warm_steady | 33.5 ms; 0% sub-frame launches; p90 37.8 ms; n = 10 of 10 |
+| BetterOffice | prose-50kw | process_cold_fs_warm | 263.9 ms; 0% sub-frame launches; p90 284.6 ms; n = 10 of 10; by pixels, least change on any key press 2057 pixels (#245) |
+| Nutrient | prose-50kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-50kw | process_cold_fs_warm | 47.3 ms; 0% sub-frame launches; p90 57.6 ms; n = 10 of 10; by pixels, least change on any key press 1960 pixels (#245) |
+| OpenDoc | prose-50kw | process_cold_fs_warm | 128.6 ms; 0% sub-frame launches; p90 151.6 ms; n = 10 of 10; by pixels, least change on any key press 38 pixels (#245) |
+| react-docx | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 1 of 10; reasons unverified: 9) Recorded reason: expected_edit_not_confirmed. |
+| BetterOffice | prose-50kw | warm_steady | 233.2 ms; 0% sub-frame launches; p90 247.1 ms; n = 10 of 10; by pixels, least change on any key press 2057 pixels (#245) |
+| Nutrient | prose-50kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-50kw | warm_steady | 53.9 ms; 0% sub-frame launches; p90 65.1 ms; n = 10 of 10; by pixels, least change on any key press 1960 pixels (#245) |
+| OpenDoc | prose-50kw | warm_steady | 112.1 ms; 0% sub-frame launches; p90 135.3 ms; n = 10 of 10; by pixels, least change on any key press 1842 pixels (#245) |
+| react-docx | prose-50kw | warm_steady | first: not enough samples (n = 1 of 10; reasons unverified: 9) Recorded reason: expected_edit_not_confirmed. |
+| BetterOffice | prose-5kw | process_cold_fs_warm | 228.7 ms; 0% sub-frame launches; p90 278.3 ms; n = 10 of 10; by pixels, least change on any key press 2057 pixels (#245) |
+| Nutrient | prose-5kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-5kw | process_cold_fs_warm | 47.7 ms; 0% sub-frame launches; p90 80.5 ms; n = 10 of 10; by pixels, least change on any key press 1960 pixels (#245) |
+| OpenDoc | prose-5kw | process_cold_fs_warm | 86.9 ms; 0% sub-frame launches; p90 97.1 ms; n = 10 of 10; by pixels, least change on any key press 38 pixels (#245) |
+| react-docx | prose-5kw | process_cold_fs_warm | 123.5 ms; 0% sub-frame launches; p90 136.4 ms; n = 10 of 10 |
+| BetterOffice | prose-5kw | warm_steady | 180.3 ms; 0% sub-frame launches; p90 194.7 ms; n = 10 of 10; by pixels, least change on any key press 2057 pixels (#245) |
+| Nutrient | prose-5kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-5kw | warm_steady | 38.1 ms; 0% sub-frame launches; p90 59.5 ms; n = 10 of 10; by pixels, least change on any key press 1960 pixels (#245) |
+| OpenDoc | prose-5kw | warm_steady | 80.3 ms; 0% sub-frame launches; p90 90.8 ms; n = 10 of 10; by pixels, least change on any key press 1842 pixels (#245) |
+| react-docx | prose-5kw | warm_steady | 98.5 ms; 0% sub-frame launches; p90 129.1 ms; n = 10 of 10 |
+
+#### Sustained typing (C06)
+
+| Editor | Workload | Measure | C06 |
+|---|---|---|---|
+| BetterOffice | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_unverifiable: readParagraphs refused: {"failure":{"code":"unsupported","message":"paragraph \"body:p11\" has a pending paragraph-mark revision…. |
+| Nutrient | complex-corpus | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | process_cold_fs_warm | 77.2 ms; 0% sub-frame launches; p90 80.7 ms; n = 10 of 10; by pixels, least change on any key press 18 pixels (#245) |
+| react-docx | complex-corpus | process_cold_fs_warm | 59.4 ms; 0% sub-frame launches; p90 66.2 ms; n = 10 of 10 |
+| BetterOffice | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_unverifiable: readParagraphs refused: {"failure":{"code":"unsupported","message":"paragraph \"body:p11\" has a pending paragraph-mark revision…. |
+| Nutrient | complex-corpus | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | warm_steady | 74.2 ms; 0% sub-frame launches; p90 82.9 ms; n = 10 of 10; by pixels, least change on any key press 18 pixels (#245) |
+| react-docx | complex-corpus | warm_steady | 53.5 ms; 0% sub-frame launches; p90 58.1 ms; n = 10 of 10 |
+| BetterOffice | prose-250kw | process_cold_fs_warm | 512.2 ms; 0% sub-frame launches; p90 531.2 ms; n = 10 of 10; by pixels, least change on any key press 2084 pixels (#245) |
+| Nutrient | prose-250kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-250kw | process_cold_fs_warm | 56.7 ms; 0% sub-frame launches; p90 63.9 ms; n = 10 of 10; by pixels, least change on any key press 1452 pixels (#245) |
+| OpenDoc | prose-250kw | process_cold_fs_warm | 157.6 ms; 0% sub-frame launches; p90 162.6 ms; n = 10 of 10; by pixels, least change on any key press 38 pixels (#245) |
+| react-docx | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: expected_edit_not_confirmed. |
+| BetterOffice | prose-250kw | warm_steady | 499.7 ms; 0% sub-frame launches; p90 535.7 ms; n = 10 of 10; by pixels, least change on any key press 2084 pixels (#245) |
+| Nutrient | prose-250kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-250kw | warm_steady | 56.5 ms; 0% sub-frame launches; p90 65.6 ms; n = 10 of 10; by pixels, least change on any key press 1452 pixels (#245) |
+| OpenDoc | prose-250kw | warm_steady | 150.0 ms; 0% sub-frame launches; p90 165.1 ms; n = 10 of 10; by pixels, least change on any key press 1857 pixels (#245) |
+| react-docx | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: expected_edit_not_confirmed. |
+| BetterOffice | prose-500w | process_cold_fs_warm | 150.1 ms; 0% sub-frame launches; p90 161.9 ms; n = 10 of 10; by pixels, least change on any key press 2084 pixels (#245) |
+| Nutrient | prose-500w | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-500w | process_cold_fs_warm | 44.1 ms; 0% sub-frame launches; p90 61.2 ms; n = 10 of 10; by pixels, least change on any key press 1452 pixels (#245) |
+| OpenDoc | prose-500w | process_cold_fs_warm | 78.7 ms; 0% sub-frame launches; p90 85.8 ms; n = 10 of 10; by pixels, least change on any key press 38 pixels (#245) |
+| react-docx | prose-500w | process_cold_fs_warm | 27.5 ms; 0% sub-frame launches; p90 33.3 ms; n = 10 of 10 |
+| BetterOffice | prose-500w | warm_steady | 145.0 ms; 0% sub-frame launches; p90 150.5 ms; n = 10 of 10; by pixels, least change on any key press 2084 pixels (#245) |
+| Nutrient | prose-500w | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-500w | warm_steady | 44.7 ms; 0% sub-frame launches; p90 60.6 ms; n = 10 of 10; by pixels, least change on any key press 1452 pixels (#245) |
+| OpenDoc | prose-500w | warm_steady | 74.5 ms; 0% sub-frame launches; p90 77.9 ms; n = 10 of 10; by pixels, least change on any key press 1857 pixels (#245) |
+| react-docx | prose-500w | warm_steady | 27.7 ms; 0% sub-frame launches; p90 33.4 ms; n = 10 of 10 |
+| BetterOffice | prose-50kw | process_cold_fs_warm | 243.0 ms; 0% sub-frame launches; p90 266.6 ms; n = 10 of 10; by pixels, least change on any key press 2084 pixels (#245) |
+| Nutrient | prose-50kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-50kw | process_cold_fs_warm | 51.3 ms; 0% sub-frame launches; p90 62.8 ms; n = 10 of 10; by pixels, least change on any key press 1452 pixels (#245) |
+| OpenDoc | prose-50kw | process_cold_fs_warm | 116.6 ms; 0% sub-frame launches; p90 125.7 ms; n = 10 of 10; by pixels, least change on any key press 38 pixels (#245) |
+| react-docx | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 1 of 10; reasons unverified: 9); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: expected_edit_not_confirmed. |
+| BetterOffice | prose-50kw | warm_steady | 232.4 ms; 0% sub-frame launches; p90 257.6 ms; n = 10 of 10; by pixels, least change on any key press 2084 pixels (#245) |
+| Nutrient | prose-50kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-50kw | warm_steady | 45.0 ms; 0% sub-frame launches; p90 63.0 ms; n = 10 of 10; by pixels, least change on any key press 1452 pixels (#245) |
+| OpenDoc | prose-50kw | warm_steady | 117.8 ms; 0% sub-frame launches; p90 120.7 ms; n = 10 of 10; by pixels, least change on any key press 1857 pixels (#245) |
+| react-docx | prose-50kw | warm_steady | first: not enough samples (n = 1 of 10; reasons unverified: 9); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: expected_edit_not_confirmed. |
+| BetterOffice | prose-5kw | process_cold_fs_warm | 164.0 ms; 0% sub-frame launches; p90 187.0 ms; n = 10 of 10; by pixels, least change on any key press 2084 pixels (#245) |
+| Nutrient | prose-5kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-5kw | process_cold_fs_warm | 41.3 ms; 0% sub-frame launches; p90 60.1 ms; n = 10 of 10; by pixels, least change on any key press 1452 pixels (#245) |
+| OpenDoc | prose-5kw | process_cold_fs_warm | 77.7 ms; 0% sub-frame launches; p90 86.3 ms; n = 10 of 10; by pixels, least change on any key press 38 pixels (#245) |
+| react-docx | prose-5kw | process_cold_fs_warm | 87.5 ms; 0% sub-frame launches; p90 91.6 ms; n = 10 of 10 |
+| BetterOffice | prose-5kw | warm_steady | 170.6 ms; 0% sub-frame launches; p90 186.9 ms; n = 10 of 10; by pixels, least change on any key press 2084 pixels (#245) |
+| Nutrient | prose-5kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) |
+| OnlyOffice (CryptPad build) | prose-5kw | warm_steady | 53.8 ms; 0% sub-frame launches; p90 57.7 ms; n = 10 of 10; by pixels, least change on any key press 1452 pixels (#245) |
+| OpenDoc | prose-5kw | warm_steady | 78.5 ms; 0% sub-frame launches; p90 91.0 ms; n = 10 of 10; by pixels, least change on any key press 1857 pixels (#245) |
+| react-docx | prose-5kw | warm_steady | 88.3 ms; 0% sub-frame launches; p90 97.9 ms; n = 10 of 10 |
+
+#### Cursor and selection (C07)
+
+| Editor | Workload | C07 |
+|---|---|---|
+| BetterOffice | complex-corpus | first: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10); second: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10) Recorded reason: editor_model_unavailable. |
+| Nutrient | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | 30.2 ms; 0% sub-frame launches; p90 32.0 ms; n = 10 of 10 |
+| react-docx | complex-corpus | 44.0 ms; 0% sub-frame launches; p90 45.4 ms; n = 10 of 10 |
+| BetterOffice | prose-250kw | 29.8 ms; 0% sub-frame launches; p90 32.5 ms; n = 10 of 10 |
+| Nutrient | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-250kw | 45.3 ms; 0% sub-frame launches; range 28.0 to 61.3 ms; n = 9 of 10; 1 of 10 launches failed: unverified: 1; second: 3 of 10 launches failed: unverified: 3 |
+| OpenDoc | prose-250kw | 61.9 ms; 0% sub-frame launches; p90 63.3 ms; n = 10 of 10 |
+| react-docx | prose-250kw | 4384.8 ms; 0% sub-frame launches; p90 4738.9 ms; n = 10 of 10 |
+| BetterOffice | prose-500w | 26.2 ms; 0% sub-frame launches; p90 33.8 ms; n = 10 of 10 |
+| Nutrient | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-500w | 43.4 ms; 0% sub-frame launches; p90 61.0 ms; n = 10 of 10 |
+| OpenDoc | prose-500w | 28.0 ms; 0% sub-frame launches; p90 30.6 ms; n = 10 of 10 |
+| react-docx | prose-500w | 29.0 ms; 0% sub-frame launches; p90 30.2 ms; n = 10 of 10 |
+| BetterOffice | prose-50kw | 31.3 ms; 0% sub-frame launches; p90 41.3 ms; n = 10 of 10 |
+| Nutrient | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-50kw | 43.8 ms; 0% sub-frame launches; p90 58.1 ms; n = 10 of 10 |
+| OpenDoc | prose-50kw | 28.4 ms; 0% sub-frame launches; p90 34.8 ms; n = 10 of 10 |
+| react-docx | prose-50kw | 789.2 ms; 0% sub-frame launches; p90 819.7 ms; n = 10 of 10 |
+| BetterOffice | prose-5kw | 33.2 ms; 0% sub-frame launches; p90 37.1 ms; n = 10 of 10 |
+| Nutrient | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-5kw | 42.6 ms; 0% sub-frame launches; p90 59.9 ms; n = 10 of 10 |
+| OpenDoc | prose-5kw | 28.5 ms; 0% sub-frame launches; p90 30.5 ms; n = 10 of 10 |
+| react-docx | prose-5kw | 76.7 ms; 0% sub-frame launches; p90 80.0 ms; n = 10 of 10 |
+
+#### Clipboard and bulk editing (C08)
+
+| Editor | Workload | C08 |
+|---|---|---|
+| BetterOffice | complex-corpus | first: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10); second: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10) Recorded reason: editor_model_unavailable. |
+| Nutrient | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | 81.6 ms; 0% sub-frame launches; p90 85.2 ms; n = 10 of 10 |
+| react-docx | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: correctness: bulk_text_or_position. |
+| BetterOffice | prose-250kw | 823.8 ms; 0% sub-frame launches; p90 867.7 ms; n = 10 of 10 |
+| Nutrient | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-250kw | 62.2 ms; 0% sub-frame launches; p90 69.5 ms; n = 10 of 10 |
+| OpenDoc | prose-250kw | 211.9 ms; 0% sub-frame launches; p90 244.4 ms; n = 10 of 10 |
+| react-docx | prose-250kw | 9945.7 ms; 0% sub-frame launches; p90 10838.8 ms; n = 10 of 10 |
+| BetterOffice | prose-500w | 287.4 ms; 0% sub-frame launches; p90 302.8 ms; n = 10 of 10 |
+| Nutrient | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-500w | 62.7 ms; 0% sub-frame launches; p90 90.7 ms; n = 10 of 10 |
+| OpenDoc | prose-500w | 124.4 ms; 0% sub-frame launches; p90 138.7 ms; n = 10 of 10 |
+| react-docx | prose-500w | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: no_painted_frame. |
+| BetterOffice | prose-50kw | 562.2 ms; 0% sub-frame launches; p90 597.0 ms; n = 10 of 10 |
+| Nutrient | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-50kw | 69.2 ms; 0% sub-frame launches; p90 84.3 ms; n = 10 of 10 |
+| OpenDoc | prose-50kw | 176.9 ms; 0% sub-frame launches; p90 196.2 ms; n = 10 of 10 |
+| react-docx | prose-50kw | 3386.2 ms; 0% sub-frame launches; p90 3484.3 ms; n = 10 of 10 |
+| BetterOffice | prose-5kw | 444.4 ms; 0% sub-frame launches; p90 480.1 ms; n = 10 of 10 |
+| Nutrient | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-5kw | 58.1 ms; 0% sub-frame launches; p90 73.8 ms; n = 10 of 10 |
+| OpenDoc | prose-5kw | 139.9 ms; 0% sub-frame launches; p90 149.7 ms; n = 10 of 10 |
+| react-docx | prose-5kw | 130.0 ms; 0% sub-frame launches; p90 143.8 ms; n = 10 of 10 |
+
+#### Undo and redo (C09)
+
+| Editor | Workload | C09 |
+|---|---|---|
+| BetterOffice | complex-corpus | first: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10); second: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10) Recorded reason: editor_model_unavailable. |
+| Nutrient | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | 64.4 ms; 0% sub-frame launches; p90 77.4 ms; n = 10 of 10 |
+| react-docx | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: typed_character_not_observable_in_document_text. |
+| BetterOffice | prose-250kw | not reproduced (first 380.9 ms; second 336.3 ms) |
+| Nutrient | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-250kw | 49.6 ms; 0% sub-frame launches; p90 63.0 ms; n = 10 of 10 |
+| OpenDoc | prose-250kw | 146.9 ms; 0% sub-frame launches; p90 161.1 ms; n = 10 of 10 |
+| react-docx | prose-250kw | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: no_painted_frame. |
+| BetterOffice | prose-500w | 126.8 ms; 0% sub-frame launches; p90 141.5 ms; n = 10 of 10 |
+| Nutrient | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-500w | 48.9 ms; 0% sub-frame launches; p90 63.2 ms; n = 10 of 10 |
+| OpenDoc | prose-500w | 65.1 ms; 0% sub-frame launches; p90 87.4 ms; n = 10 of 10 |
+| react-docx | prose-500w | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: no_painted_frame. |
+| BetterOffice | prose-50kw | 93.5 ms; 0% sub-frame launches; p90 117.9 ms; n = 10 of 10 |
+| Nutrient | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-50kw | 45.1 ms; 0% sub-frame launches; p90 61.3 ms; n = 10 of 10 |
+| OpenDoc | prose-50kw | 120.3 ms; 0% sub-frame launches; p90 131.5 ms; n = 10 of 10 |
+| react-docx | prose-50kw | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: no_painted_frame. |
+| BetterOffice | prose-5kw | 152.1 ms; 0% sub-frame launches; p90 161.5 ms; n = 10 of 10 |
+| Nutrient | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into. |
+| OnlyOffice (CryptPad build) | prose-5kw | 35.5 ms; 0% sub-frame launches; p90 49.0 ms; n = 10 of 10 |
+| OpenDoc | prose-5kw | 70.9 ms; 0% sub-frame launches; p90 85.9 ms; n = 10 of 10 |
+| react-docx | prose-5kw | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: no_painted_frame. |
+
+#### Scrolling (C10)
+
+| Editor | Workload | C10 |
+|---|---|---|
+| BetterOffice | complex-corpus | < 1 frame (16.7 ms); 60% sub-frame launches; p90 23.1 ms; n = 10 of 10 |
+| Nutrient | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no scroll container: 333 element(s) inspected, open shadow roots searched: html > body > div#viewer > div.PSPDFKit-Container; 40 element(s) with a scroll range…. |
+| OnlyOffice (CryptPad build) | complex-corpus | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: the probe produced no sample. |
+| OpenDoc | complex-corpus | 29.0 ms; 0% sub-frame launches; p90 33.5 ms; n = 10 of 10 |
+| react-docx | complex-corpus | 17.9 ms; 30% sub-frame launches; p90 19.8 ms; n = 10 of 10 |
+| BetterOffice | prose-250kw | 22.0 ms; 20% sub-frame launches; p90 28.7 ms; n = 10 of 10 |
+| Nutrient | prose-250kw | 53.0 ms; 0% sub-frame launches; p90 70.3 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-250kw | 49.0 ms; 20% sub-frame launches; p90 49.3 ms; n = 10 of 10 |
+| OpenDoc | prose-250kw | 29.3 ms; 0% sub-frame launches; p90 35.7 ms; n = 10 of 10 |
+| react-docx | prose-250kw | 116.8 ms; 0% sub-frame launches; p90 130.9 ms; n = 10 of 10 |
+| BetterOffice | prose-500w | < 1 frame (16.7 ms); 50% sub-frame launches; p90 20.6 ms; n = 10 of 10 |
+| Nutrient | prose-500w | 40.0 ms; 0% sub-frame launches; p90 48.8 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-500w | 48.8 ms; 10% sub-frame launches; p90 49.4 ms; n = 10 of 10 |
+| OpenDoc | prose-500w | < 1 frame (16.7 ms); 90% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
+| react-docx | prose-500w | < 1 frame (16.7 ms); 60% sub-frame launches; p90 18.6 ms; n = 10 of 10 |
+| BetterOffice | prose-50kw | 19.4 ms; 30% sub-frame launches; p90 25.5 ms; n = 10 of 10 |
+| Nutrient | prose-50kw | 47.7 ms; 0% sub-frame launches; p90 53.0 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-50kw | 24.3 ms; 50% sub-frame launches; p90 49.3 ms; n = 10 of 10 |
+| OpenDoc | prose-50kw | 22.3 ms; 10% sub-frame launches; p90 29.9 ms; n = 10 of 10 |
+| react-docx | prose-50kw | 26.8 ms; 0% sub-frame launches; p90 33.4 ms; n = 10 of 10 |
+| BetterOffice | prose-5kw | < 1 frame (16.7 ms); 50% sub-frame launches; p90 22.9 ms; n = 10 of 10 |
+| Nutrient | prose-5kw | 47.5 ms; 0% sub-frame launches; p90 52.3 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-5kw | 32.8 ms; 30% sub-frame launches; p90 49.3 ms; n = 10 of 10 |
+| OpenDoc | prose-5kw | 21.5 ms; 0% sub-frame launches; p90 24.5 ms; n = 10 of 10 |
+| react-docx | prose-5kw | < 1 frame (16.7 ms); 60% sub-frame launches; p90 19.2 ms; n = 10 of 10 |
+
+#### Initial layout (C11)
+
+| Editor | Workload | C11 |
+|---|---|---|
+| BetterOffice | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_unverifiable: readParagraphs refused: {"failure":{"code":"unsupported","message":"paragraph \"body:p11\" has a pending paragraph-mark revision…. |
+| Nutrient | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_content_mismatch. |
+| OnlyOffice (CryptPad build) | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | not reproduced (first 1172.6 ms; second 1320.3 ms) |
+| react-docx | complex-corpus | 1173.2 ms; 0% sub-frame launches; p90 1434.3 ms; n = 10 of 10 |
+| BetterOffice | prose-250kw | 6327.9 ms; 0% sub-frame launches; p90 6444.6 ms; n = 10 of 10 |
+| Nutrient | prose-250kw | 18461.0 ms; 0% sub-frame launches; p90 19087.3 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-250kw | 3945.5 ms; 0% sub-frame launches; p90 4119.4 ms; n = 10 of 10 |
+| OpenDoc | prose-250kw | 2842.9 ms; 0% sub-frame launches; p90 2953.6 ms; n = 10 of 10 |
+| react-docx | prose-250kw | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: no presented frame at or after the document surface; FCP is not a C11 sample. |
+| BetterOffice | prose-500kw | 14951.6 ms; 0% sub-frame launches; p90 16059.8 ms; n = 10 of 10 |
+| Nutrient | prose-500kw | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reasons: editor_load_failed: Program terminated with exit(1); editor_load_failed: unknown_error: An unknown Error occurred: Arg_OutOfMemoryException. |
+| OnlyOffice (CryptPad build) | prose-500kw | 5834.9 ms; 0% sub-frame launches; p90 6417.6 ms; n = 10 of 10 |
+| OpenDoc | prose-500kw | 4750.9 ms; 0% sub-frame launches; p90 4952.3 ms; n = 10 of 10 |
+| react-docx | prose-500kw | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: no presented frame at or after the document surface; FCP is not a C11 sample. |
+| BetterOffice | prose-500w | 1029.2 ms; 0% sub-frame launches; p90 1079.5 ms; n = 10 of 10 |
+| Nutrient | prose-500w | 4207.6 ms; 0% sub-frame launches; p90 4418.1 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-500w | 1878.6 ms; 0% sub-frame launches; p90 1927.2 ms; n = 10 of 10 |
+| OpenDoc | prose-500w | not reproduced (first 918.6 ms; second 1044.8 ms) |
+| react-docx | prose-500w | 685.0 ms; 0% sub-frame launches; p90 689.0 ms; n = 10 of 10 |
+| BetterOffice | prose-50kw | 2317.4 ms; 0% sub-frame launches; p90 2622.1 ms; n = 10 of 10 |
+| Nutrient | prose-50kw | 7367.0 ms; 0% sub-frame launches; p90 7747.1 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-50kw | 2534.8 ms; 0% sub-frame launches; p90 2571.1 ms; n = 10 of 10 |
+| OpenDoc | prose-50kw | 1507.8 ms; 0% sub-frame launches; p90 1815.8 ms; n = 10 of 10 |
+| react-docx | prose-50kw | 4826.6 ms; 0% sub-frame launches; p90 5193.9 ms; n = 10 of 10 |
+| BetterOffice | prose-5kw | 1525.7 ms; 0% sub-frame launches; p90 1569.5 ms; n = 10 of 10 |
+| Nutrient | prose-5kw | 4621.5 ms; 0% sub-frame launches; p90 4797.1 ms; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-5kw | 2027.9 ms; 0% sub-frame launches; p90 2081.7 ms; n = 10 of 10 |
+| OpenDoc | prose-5kw | 1051.1 ms; 0% sub-frame launches; p90 1196.3 ms; n = 10 of 10 |
+| react-docx | prose-5kw | 1160.1 ms; 0% sub-frame launches; p90 1189.3 ms; n = 10 of 10 |
+
+#### Incremental reflow (C12)
+
+| Editor | Workload | C12 |
+|---|---|---|
+| BetterOffice | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages ([data-docx-pages-host] .paged-editor__page (host paints into <canvas>; its acce…. |
+| Nutrient | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: nothing in the document can be edited, so there is no reflow after an edit to time. |
+| OnlyOffice (CryptPad build) | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#pages .page-wrap (host paints each page into canvas.page)); the only DOM box i…. |
+| react-docx | complex-corpus | 139.8 ms; 0% sub-frame launches; p90 164.5 ms; n = 10 of 10 |
+| BetterOffice | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages ([data-docx-pages-host] .paged-editor__page (host paints into <canvas>; its acce…. |
+| Nutrient | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: nothing in the document can be edited, so there is no reflow after an edit to time. |
+| OnlyOffice (CryptPad build) | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#id_viewer in its editor frame (OnlyOffice paints each page into one <canvas>))…. |
+| OpenDoc | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#pages .page-wrap (host paints each page into canvas.page)); the only DOM box i…. |
+| react-docx | prose-250kw | first: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10); second: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10) Recorded reason: probe refused reactdocx: anchor_identity_ambiguous. |
+| BetterOffice | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages ([data-docx-pages-host] .paged-editor__page (host paints into <canvas>; its acce…. |
+| Nutrient | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: nothing in the document can be edited, so there is no reflow after an edit to time. |
+| OnlyOffice (CryptPad build) | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#id_viewer in its editor frame (OnlyOffice paints each page into one <canvas>))…. |
+| OpenDoc | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#pages .page-wrap (host paints each page into canvas.page)); the only DOM box i…. |
+| react-docx | prose-500kw | first: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10); second: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10) Recorded reason: probe refused reactdocx: anchor_identity_ambiguous. |
+| BetterOffice | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages ([data-docx-pages-host] .paged-editor__page (host paints into <canvas>; its acce…. |
+| Nutrient | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: nothing in the document can be edited, so there is no reflow after an edit to time. |
+| OnlyOffice (CryptPad build) | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#id_viewer in its editor frame (OnlyOffice paints each page into one <canvas>))…. |
+| OpenDoc | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#pages .page-wrap (host paints each page into canvas.page)); the only DOM box i…. |
+| react-docx | prose-500w | 65.3 ms; 0% sub-frame launches; p90 65.6 ms; n = 10 of 10; second: 4 of 10 launches failed: anchor_identity_ambiguous: 4 |
+| BetterOffice | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages ([data-docx-pages-host] .paged-editor__page (host paints into <canvas>; its acce…. |
+| Nutrient | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: nothing in the document can be edited, so there is no reflow after an edit to time. |
+| OnlyOffice (CryptPad build) | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#id_viewer in its editor frame (OnlyOffice paints each page into one <canvas>))…. |
+| OpenDoc | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#pages .page-wrap (host paints each page into canvas.page)); the only DOM box i…. |
+| react-docx | prose-50kw | first: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10); second: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10) Recorded reason: probe refused reactdocx: anchor_identity_ambiguous. |
+| BetterOffice | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages ([data-docx-pages-host] .paged-editor__page (host paints into <canvas>; its acce…. |
+| Nutrient | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: Nutrient Web SDK is a viewer here: nothing in the document can be edited, so there is no reflow after an edit to time. |
+| OnlyOffice (CryptPad build) | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#id_viewer in its editor frame (OnlyOffice paints each page into one <canvas>))…. |
+| OpenDoc | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#pages .page-wrap (host paints each page into canvas.page)); the only DOM box i…. |
+| react-docx | prose-5kw | first: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10); second: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10) Recorded reason: probe refused reactdocx: anchor_identity_ambiguous. |
+
+#### Global invalidation (C13)
+
+not in these runs.
+
+#### Large-document scaling (C14)
+
+| Editor | Workload | Measure | C14 |
+|---|---|---|---|
+| BetterOffice | complex-corpus | presented_frame | 6999.7 ms; 0% sub-frame launches; p90 7606.2 ms; n = 10 of 10 |
+| Nutrient | complex-corpus | presented_frame | second: not enough samples (n = 3 of 10; reasons none counted) |
+| OnlyOffice (CryptPad build) | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | presented_frame | 1930.6 ms; 0% sub-frame launches; p90 2081.7 ms; n = 10 of 10 |
+| react-docx | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| BetterOffice | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| Nutrient | complex-corpus | usable_no_damage | 5090.8 ms; 0% sub-frame launches; range 5051.1 to 5381.4 ms; n = 5 of 10 |
+| OnlyOffice (CryptPad build) | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| react-docx | complex-corpus | usable_no_damage | 1131.7 ms; 0% sub-frame launches; p90 1184.2 ms; n = 10 of 10 |
+| BetterOffice | prose-250kw | presented_frame | 34484.1 ms; 0% sub-frame launches; range 33202.2 to 36663.9 ms; n = 9 of 10 |
+| Nutrient | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| OnlyOffice (CryptPad build) | prose-250kw | presented_frame | 11174.0 ms; 0% sub-frame launches; p90 11523.5 ms; n = 10 of 10 |
+| OpenDoc | prose-250kw | presented_frame | 10063.8 ms; 0% sub-frame launches; p90 10238.5 ms; n = 10 of 10 |
+| react-docx | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| BetterOffice | prose-250kw | usable_no_damage | first: not enough samples (n = 1 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| Nutrient | prose-250kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 10); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 10) Recorded reason: interpretation: I01: combining mark or non-BMP scalar not preserved in output. |
+| OnlyOffice (CryptPad build) | prose-250kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | prose-250kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| react-docx | prose-250kw | usable_no_damage | 20924.8 ms; 0% sub-frame launches; p90 21138.9 ms; n = 10 of 10 |
+| BetterOffice | prose-500kw | presented_frame | not reproduced (first 82787.2 ms; second 71384.1 ms) |
+| Nutrient | prose-500kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reasons: rung prose-500kw: editor_load_failed: Program terminated with exit(1); rung prose-500kw: editor_load_failed: unknown_error: An unknown Error occurred: Arg_OutOfMemoryException. |
+| OnlyOffice (CryptPad build) | prose-500kw | presented_frame | not reproduced (first 14104.2 ms; second 12664.6 ms) |
+| OpenDoc | prose-500kw | presented_frame | not reproduced (first 22740.9 ms; second 19848.5 ms) |
+| react-docx | prose-500kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| BetterOffice | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| Nutrient | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reasons: rung prose-500kw: editor_load_failed: Program terminated with exit(1); rung prose-500kw: editor_load_failed: unknown_error: An unknown Error occurred: Arg_OutOfMemoryException. |
+| OnlyOffice (CryptPad build) | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| OpenDoc | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| react-docx | prose-500kw | usable_no_damage | not reproduced (first 51744.0 ms; second 46351.6 ms) |
+| BetterOffice | prose-500w | presented_frame | 5821.0 ms; 0% sub-frame launches; p90 5938.5 ms; n = 10 of 10 |
+| Nutrient | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 4); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 3) Recorded reason: interpretation: I01: combining mark or non-BMP scalar not preserved in output. |
+| OnlyOffice (CryptPad build) | prose-500w | presented_frame | 7810.2 ms; 0% sub-frame launches; p90 8360.0 ms; n = 10 of 10; second: 1 of 10 launches failed: crash: 1 |
+| OpenDoc | prose-500w | presented_frame | 2222.4 ms; 0% sub-frame launches; p90 2339.4 ms; n = 10 of 10 |
+| react-docx | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| BetterOffice | prose-500w | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 1 of 10; reasons none counted) |
+| Nutrient | prose-500w | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 6); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 7) Recorded reason: interpretation: I01: combining mark or non-BMP scalar not preserved in output. |
+| OnlyOffice (CryptPad build) | prose-500w | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 1 of 10; reasons crash: 9) Recorded reason: rung complex-corpus: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | prose-500w | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| react-docx | prose-500w | usable_no_damage | 689.8 ms; 0% sub-frame launches; p90 730.4 ms; n = 10 of 10 |
+| BetterOffice | prose-50kw | presented_frame | 12216.3 ms; 0% sub-frame launches; range 11661.9 to 13533.6 ms; n = 9 of 10 |
+| Nutrient | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| OnlyOffice (CryptPad build) | prose-50kw | presented_frame | 9207.6 ms; 0% sub-frame launches; p90 9784.4 ms; n = 10 of 10 |
+| OpenDoc | prose-50kw | presented_frame | 3822.8 ms; 0% sub-frame launches; p90 3937.3 ms; n = 10 of 10 |
+| react-docx | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| BetterOffice | prose-50kw | usable_no_damage | first: not enough samples (n = 1 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| Nutrient | prose-50kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 10); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 10) Recorded reason: interpretation: I01: combining mark or non-BMP scalar not preserved in output. |
+| OnlyOffice (CryptPad build) | prose-50kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | prose-50kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| react-docx | prose-50kw | usable_no_damage | 4359.7 ms; 0% sub-frame launches; p90 4523.5 ms; n = 10 of 10 |
+| BetterOffice | prose-5kw | presented_frame | 8382.0 ms; 0% sub-frame launches; p90 8966.9 ms; n = 10 of 10 |
+| Nutrient | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 4); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 5) Recorded reason: interpretation: I01: combining mark or non-BMP scalar not preserved in output. |
+| OnlyOffice (CryptPad build) | prose-5kw | presented_frame | 7867.8 ms; 0% sub-frame launches; p90 8976.8 ms; n = 10 of 10 |
+| OpenDoc | prose-5kw | presented_frame | 2430.8 ms; 0% sub-frame launches; p90 2524.0 ms; n = 10 of 10 |
+| react-docx | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| BetterOffice | prose-5kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 1 of 10; reasons none counted) |
+| Nutrient | prose-5kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 6); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 5) Recorded reason: interpretation: I01: combining mark or non-BMP scalar not preserved in output. |
+| OnlyOffice (CryptPad build) | prose-5kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: x2t did not return within 120 s (converting the document). |
+| OpenDoc | prose-5kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
+| react-docx | prose-5kw | usable_no_damage | 1129.4 ms; 0% sub-frame launches; p90 1178.7 ms; n = 10 of 10 |
+
+#### Search and replace (C15)
+
+| Editor | Workload | Measure | C15 |
+|---|---|---|---|
+| BetterOffice | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| Nutrient | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| OnlyOffice (CryptPad build) | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| OpenDoc | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| react-docx | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| BetterOffice | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| Nutrient | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| OnlyOffice (CryptPad build) | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| OpenDoc | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| react-docx | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| BetterOffice | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| Nutrient | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| OnlyOffice (CryptPad build) | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| OpenDoc | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| react-docx | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| BetterOffice | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| Nutrient | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| OnlyOffice (CryptPad build) | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| OpenDoc | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+| react-docx | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) |
+
+#### Memory by phase (C17)
+
+| Editor | Workload | Measure | C17 |
+|---|---|---|---|
+| BetterOffice | complex-corpus | after_edit_burst | 793.0 MiB; p90 798.6 MiB; n = 10 of 10 |
+| Nutrient | complex-corpus | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: host accepted no text: document text length did not grow after 12 keyboard.type of 'abcdefghij' ([{"edit_error": "text_delta_mismatch", "text_length_after": nu…. |
+| OnlyOffice (CryptPad build) | complex-corpus | after_edit_burst | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) Recorded reason: browser memory probe failed: frame.waitForFunction: Timeout 300000ms exceeded.. |
+| OpenDoc | complex-corpus | after_edit_burst | 877.2 MiB; p90 998.3 MiB; n = 10 of 10 |
+| react-docx | complex-corpus | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: caret_block_moved: after 12 keyboard.type of 'abcdefghij' the text block at the caret's point was a different block ([{"scope_after": "content control content"…. |
+| BetterOffice | complex-corpus | quiescent | 792.0 MiB; p90 801.9 MiB; n = 10 of 10 |
+| Nutrient | complex-corpus | quiescent | 796.2 MiB; p90 796.5 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | complex-corpus | quiescent | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) Recorded reason: browser memory probe failed: frame.waitForFunction: Timeout 300000ms exceeded.. |
+| OpenDoc | complex-corpus | quiescent | 885.3 MiB; p90 1007.8 MiB; n = 10 of 10 |
+| react-docx | complex-corpus | quiescent | 591.4 MiB; p90 594.0 MiB; n = 10 of 10 |
+| BetterOffice | complex-corpus | ready | 726.0 MiB; p90 757.6 MiB; n = 10 of 10 |
+| Nutrient | complex-corpus | ready | 688.3 MiB; p90 690.7 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) Recorded reason: browser memory probe failed: frame.waitForFunction: Timeout 300000ms exceeded.. |
+| OpenDoc | complex-corpus | ready | 676.1 MiB; p90 712.5 MiB; n = 10 of 10 |
+| react-docx | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| BetterOffice | prose-250kw | after_edit_burst | 1885.0 MiB; p90 1889.7 MiB; n = 10 of 10 |
+| Nutrient | prose-250kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: host accepted no text: document text length did not grow after 12 keyboard.type of 'abcdefghij' ([{"edit_error": "text_delta_mismatch", "text_length_after": nu…. |
+| OnlyOffice (CryptPad build) | prose-250kw | after_edit_burst | 973.2 MiB; p90 980.2 MiB; n = 10 of 10 |
+| OpenDoc | prose-250kw | after_edit_burst | 1149.9 MiB; p90 1179.4 MiB; n = 10 of 10 |
+| react-docx | prose-250kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: caret_block_moved: after 12 keyboard.type of 'abcdefghij' the text block at the caret's point was a different block ([{"scope_after": "Section 1.1 Termination…. |
+| BetterOffice | prose-250kw | quiescent | 1885.8 MiB; p90 1890.9 MiB; n = 10 of 10 |
+| Nutrient | prose-250kw | quiescent | 848.8 MiB; p90 866.8 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-250kw | quiescent | 1001.9 MiB; p90 1009.6 MiB; n = 10 of 10 |
+| OpenDoc | prose-250kw | quiescent | 1101.7 MiB; p90 1173.3 MiB; n = 10 of 10 |
+| react-docx | prose-250kw | quiescent | 1964.3 MiB; p90 1966.0 MiB; n = 10 of 10 |
+| BetterOffice | prose-250kw | ready | 1743.3 MiB; p90 1794.5 MiB; n = 10 of 10 |
+| Nutrient | prose-250kw | ready | 753.2 MiB; p90 759.9 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-250kw | ready | 941.1 MiB; p90 955.6 MiB; n = 10 of 10 |
+| OpenDoc | prose-250kw | ready | 832.2 MiB; p90 833.1 MiB; n = 10 of 10 |
+| react-docx | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| BetterOffice | prose-500w | after_edit_burst | 787.0 MiB; p90 808.0 MiB; n = 10 of 10 |
+| Nutrient | prose-500w | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: host accepted no text: document text length did not grow after 12 keyboard.type of 'abcdefghij' ([{"edit_error": "text_delta_mismatch", "text_length_after": nu…. |
+| OnlyOffice (CryptPad build) | prose-500w | after_edit_burst | 831.0 MiB; p90 833.8 MiB; n = 10 of 10 |
+| OpenDoc | prose-500w | after_edit_burst | 886.3 MiB; p90 925.5 MiB; n = 10 of 10 |
+| react-docx | prose-500w | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: caret_block_moved: after 12 keyboard.type of 'abcdefghij' the text block at the caret's point was a different block ([{"scope_after": "Whole, either relevant u…. |
+| BetterOffice | prose-500w | quiescent | 789.9 MiB; p90 811.0 MiB; n = 10 of 10 |
+| Nutrient | prose-500w | quiescent | 743.1 MiB; p90 750.7 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-500w | quiescent | 833.6 MiB; p90 837.7 MiB; n = 10 of 10 |
+| OpenDoc | prose-500w | quiescent | 844.5 MiB; p90 929.4 MiB; n = 10 of 10 |
+| react-docx | prose-500w | quiescent | 560.2 MiB; p90 561.8 MiB; n = 10 of 10 |
+| BetterOffice | prose-500w | ready | 714.8 MiB; p90 737.8 MiB; n = 10 of 10 |
+| Nutrient | prose-500w | ready | 675.0 MiB; p90 686.5 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-500w | ready | 783.4 MiB; p90 787.3 MiB; n = 10 of 10 |
+| OpenDoc | prose-500w | ready | 689.0 MiB; p90 717.5 MiB; n = 10 of 10 |
+| react-docx | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| BetterOffice | prose-50kw | after_edit_burst | 1172.0 MiB; p90 1177.2 MiB; n = 10 of 10 |
+| Nutrient | prose-50kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: host accepted no text: document text length did not grow after 12 keyboard.type of 'abcdefghij' ([{"edit_error": "text_delta_mismatch", "text_length_after": nu…. |
+| OnlyOffice (CryptPad build) | prose-50kw | after_edit_burst | 850.5 MiB; p90 860.5 MiB; n = 10 of 10 |
+| OpenDoc | prose-50kw | after_edit_burst | 919.3 MiB; p90 947.4 MiB; n = 10 of 10 |
+| react-docx | prose-50kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: caret_block_moved: after 12 keyboard.type of 'abcdefghij' the text block at the caret's point was a different block ([{"scope_after": "Section 1.1 Termination…. |
+| BetterOffice | prose-50kw | quiescent | 1173.5 MiB; p90 1178.8 MiB; n = 10 of 10 |
+| Nutrient | prose-50kw | quiescent | 776.7 MiB; p90 801.9 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-50kw | quiescent | 902.6 MiB; p90 911.9 MiB; n = 10 of 10 |
+| OpenDoc | prose-50kw | quiescent | 964.4 MiB; p90 989.4 MiB; n = 10 of 10 |
+| react-docx | prose-50kw | quiescent | 836.6 MiB; p90 838.6 MiB; n = 10 of 10 |
+| BetterOffice | prose-50kw | ready | 1046.8 MiB; p90 1050.1 MiB; n = 10 of 10 |
+| Nutrient | prose-50kw | ready | 693.0 MiB; p90 699.0 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-50kw | ready | 840.9 MiB; p90 847.9 MiB; n = 10 of 10 |
+| OpenDoc | prose-50kw | ready | 703.0 MiB; p90 705.1 MiB; n = 10 of 10 |
+| react-docx | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| BetterOffice | prose-5kw | after_edit_burst | 969.0 MiB; p90 975.8 MiB; n = 10 of 10 |
+| Nutrient | prose-5kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: host accepted no text: document text length did not grow after 12 keyboard.type of 'abcdefghij' ([{"edit_error": "text_delta_mismatch", "text_length_after": nu…. |
+| OnlyOffice (CryptPad build) | prose-5kw | after_edit_burst | 864.5 MiB; p90 867.7 MiB; n = 10 of 10 |
+| OpenDoc | prose-5kw | after_edit_burst | 923.1 MiB; p90 1050.2 MiB; n = 10 of 10 |
+| react-docx | prose-5kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: caret_block_moved: after 12 keyboard.type of 'abcdefghij' the text block at the caret's point was a different block ([{"scope_after": "Section 1.1 Termination…. |
+| BetterOffice | prose-5kw | quiescent | 949.9 MiB; p90 979.0 MiB; n = 10 of 10 |
+| Nutrient | prose-5kw | quiescent | 815.1 MiB; p90 817.7 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-5kw | quiescent | 864.5 MiB; p90 867.9 MiB; n = 10 of 10 |
+| OpenDoc | prose-5kw | quiescent | 886.5 MiB; p90 1012.8 MiB; n = 10 of 10 |
+| react-docx | prose-5kw | quiescent | 593.2 MiB; p90 595.0 MiB; n = 10 of 10 |
+| BetterOffice | prose-5kw | ready | 833.3 MiB; p90 837.5 MiB; n = 10 of 10 |
+| Nutrient | prose-5kw | ready | 676.3 MiB; p90 683.3 MiB; n = 10 of 10 |
+| OnlyOffice (CryptPad build) | prose-5kw | ready | 779.3 MiB; p90 783.8 MiB; n = 10 of 10 |
+| OpenDoc | prose-5kw | ready | 687.1 MiB; p90 702.9 MiB; n = 10 of 10 |
+| react-docx | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+
+#### Resources while opening and editing (B8)
+
+### 500 words
+
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
+|---|---|---|---|---|---|
+| BetterOffice | 3.50 s / 3.65 s | 860 ms / 870 ms | 28 ms/s / 29 ms/s | 739.7 MiB / 725.6 MiB | n = 10, 10 |
+| OpenDoc | 4.41 s / 4.36 s | 1.44 s / 1.47 s | 25 ms/s / 18 ms/s | 873.2 MiB / 871.2 MiB | n = 10, 10 |
+| react-docx | 1.52 s / 1.48 s | 455 ms / 450 ms | 22 ms/s / 18 ms/s | 583.7 MiB / 584.5 MiB | n = 10, 10 |
+
+Not published or flagged:
+
+- Nutrient: first seed: 0 of 10 launches kept (not_applicable 10).
+- OnlyOffice (CryptPad build): first seed: 0 of 10 launches kept (counter_not_recorded 10).
+
+### 5,000 words
+
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
+|---|---|---|---|---|---|
+| BetterOffice | 5.33 s / 5.28 s | 865 ms / 865 ms | 37 ms/s / 38 ms/s | 861.3 MiB / 855.2 MiB | n = 10, 10 |
+| OpenDoc | 4.70 s / 4.59 s | 1.49 s / 1.50 s | 24 ms/s / 21 ms/s | 860.4 MiB / 859.3 MiB | n = 10, 10 |
+| react-docx | 2.33 s / 2.30 s | 1.73 s / 1.75 s | 19 ms/s / 18 ms/s | 698.6 MiB / 700.5 MiB | n = 10, 10 |
+
+Not published or flagged:
+
+- Nutrient: first seed: 0 of 10 launches kept (not_applicable 10).
+- OnlyOffice (CryptPad build): first seed: 0 of 10 launches kept (counter_not_recorded 10).
+
+### 50,000 words
+
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
+|---|---|---|---|---|---|
+| BetterOffice | 7.23 s / 7.34 s | 1.09 s / 1.10 s | 34 ms/s / 38 ms/s | 1053.1 MiB / 1051.1 MiB | n = 10, 10 |
+| OpenDoc | 5.72 s / 5.93 s | 2.08 s / 2.11 s | 21 ms/s / 15 ms/s | 902.4 MiB / 902.6 MiB | n = 10, 10 |
+| react-docx | 6.63 s / 6.62 s | 12.39 s / 12.76 s | 24 ms/s / 22 ms/s | 1310.7 MiB / 1310.4 MiB | n = 10, 10 |
+
+Not published or flagged:
+
+- Nutrient: first seed: 0 of 10 launches kept (not_applicable 10).
+- OnlyOffice (CryptPad build): first seed: 0 of 10 launches kept (counter_not_recorded 10).
+
+### 250,000 words
+
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
+|---|---|---|---|---|---|
+| BetterOffice | 16.90 s / 16.16 s | 1.18 s / 1.29 s | 46 ms/s / 39 ms/s | 1845.8 MiB / 1818.2 MiB | n = 10, 10 |
+| OpenDoc | not reproduced (first 12.48 s; second 11.13 s; launches 10.64 s to 13.22 s) | 2.88 s / 2.70 s | 23 ms/s / 16 ms/s | 1101.7 MiB / 1103.1 MiB | n = 10, 10 |
+| react-docx | 27.94 s / 26.65 s | 77.32 s / 73.73 s | not reproduced (first 64 ms/s; second 55 ms/s; launches 19 ms/s to 506 ms/s) | 3693.4 MiB / 3597.5 MiB | n = 10, 10 |
+
+Not published or flagged:
+
+- Nutrient: first seed: 0 of 10 launches kept (not_applicable 10).
+- OnlyOffice (CryptPad build): first seed: 0 of 10 launches kept (counter_not_recorded 10).
+
+### Complex document
+
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
+|---|---|---|---|---|---|
+| BetterOffice | 4.00 s / 4.20 s | 1.15 s / 1.20 s | 29 ms/s / 27 ms/s | 775.2 MiB / 775.2 MiB | n = 10, 10 |
+| OpenDoc | 4.18 s / 4.27 s | 1.65 s / 1.72 s | 22 ms/s / 26 ms/s | 829.6 MiB / 800.5 MiB | n = 10, 10 |
+| react-docx | 2.63 s / 2.79 s | 1.02 s / 1.07 s | 23 ms/s / 24 ms/s | 621.2 MiB / 622.7 MiB | n = 10, 10 |
+
+Not published or flagged:
+
+- Nutrient: first seed: 0 of 10 launches kept (not_applicable 10).
+- OnlyOffice (CryptPad build): first seed: 0 of 10 launches kept (editor_load_failed 10); x2t did not return within 120 s (converting the document)
+    at onLoad (file:///app/perf/runner/resources_session.mjs:433:39).
+
+The settling window is not a fixed length: it ends at the first half-second poll at which two seconds have passed without a long task, so it is short when the page was already quiet and long when it was still working. What is timed is the span from the first to the last reading taken during that wait; in these runs it ran from 1.2 s to 4.1 s. The column therefore gives processor time per second of that span (ms/s; 10 ms/s is one percent of one processor), from the launches whose span was a second or more: a shorter one cannot be read with a counter that advances in steps of 10 ms. With fewer than 5 such launches in a seed, the cell says the wait was too short to measure, and gives no figure even when the other seed had enough. The two quiet seconds can begin before the first of these readings, so a span holds some of that quiet time, not always all of it. The figure is an average over the span, working and quiet time together: it is not the rate at which the editor works, and it still depends on how long the span ran. The polls themselves cost processor time, and that is in every figure. Earlier releases printed the total over the window. Across the 15 cells that had one, the first seed's median was the higher in 13 and the lower in 0. The totals are kept in the facts and are not printed.
+
+#### Typing marathon (B9)
+
+BetterOffice — latency; first n = 6 of 6; second n = 6 of 6. Latency-session throughput and resources are instrumented; figures withheld.
+
+| Measure | First seed | Second seed |
+|---|---|---|
+| key_to_paint.median_ms | 140.059 ms; range 139.2 to 141.5 ms (n = 6) | 139.07 ms; range 138.1 to 141.7 ms (n = 6) |
+| key_to_paint.p90_ms | 220.403 ms; range 215.3 to 222.0 ms (n = 6) | 220.913 ms; range 215.8 to 227.5 ms (n = 6) |
+| load_ms | 1225.45 ms; range 1183.4 to 1345.3 ms (n = 6) | 1222.21 ms; range 1169.8 to 1279.7 ms (n = 6) |
+
+first: accepted 4643; refused 223 key witnesses.
+
+second: accepted 4704; refused 162 key witnesses.
+
+BetterOffice — throughput; first n = 6 of 6; second n = 6 of 6. One or more measures did not reproduce, so no figure is printed.
+
+Nutrient — latency: does not apply (Nutrient Web SDK is a viewer here: there is no caret and nothing to type into).
+
+Nutrient — throughput: does not apply (Nutrient Web SDK is a viewer here: there is no caret and nothing to type into).
+
+OnlyOffice (CryptPad build) — latency; first n = 6 of 6; second n = 6 of 6. Latency-session throughput and resources are instrumented; figures withheld.
+
+| Measure | First seed | Second seed |
+|---|---|---|
+| key_to_paint.median_ms | 46.261 ms; range 44.7 to 46.8 ms (n = 6) | 45.5235 ms; range 44.4 to 46.4 ms (n = 6) |
+| key_to_paint.p90_ms | 64.338 ms; range 63.8 to 64.8 ms (n = 6) | 65.1025 ms; range 63.4 to 65.5 ms (n = 6) |
+| load_ms | 3009.51 ms; range 2920.3 to 3060.9 ms (n = 6) | 3103.21 ms; range 3009.3 to 3453.4 ms (n = 6) |
+
+first: accepted 4836; refused 30 key witnesses.
+
+second: accepted 4836; refused 30 key witnesses.
+
+OnlyOffice (CryptPad build) — throughput; first n = 6 of 6; second n = 6 of 6. One or more measures did not reproduce, so no figure is printed.
+
+OpenDoc — latency: first: did not finish within the hour: 2 sessions stopped at the one-hour limit every editor has, with 6,675 and 6,364 words typed; the other 4 were not tried; second: did not finish within the hour: 2 sessions stopped at the one-hour limit every editor has, with 6,044 and 5,904 words typed; the other 4 were not tried Latency-session throughput and resources are instrumented; figures withheld.
+
+OpenDoc — throughput: first: did not finish within the hour: 2 sessions stopped at the one-hour limit every editor has, with 7,307 and 6,906 words typed; the other 4 were not tried; second: did not finish within the hour: 2 sessions stopped at the one-hour limit every editor has, with 7,213 and 6,827 words typed; the other 4 were not tried
+
+react-docx — latency: first: the typed text did not match: 2 sessions typed 81,225 characters each, and the text read back first differs from it after 23 characters of the compared text (spaces collapsed, quotes folded, list markers set aside); the other 4 were not tried; second: the typed text did not match: 2 sessions typed 81,225 characters each, and the text read back first differs from it after 23 characters of the compared text (spaces collapsed, quotes folded, list markers set aside); the other 4 were not tried Latency-session throughput and resources are instrumented; figures withheld.
+
+react-docx — throughput: first: the typed text did not match: 2 sessions typed 81,225 characters each, and the text read back first differs from it after 23 characters of the compared text (spaces collapsed, quotes folded, list markers set aside); the other 4 were not tried; second: the typed text did not match: 2 sessions typed 81,225 characters each, and the text read back first differs from it after 23 characters of the compared text (spaces collapsed, quotes folded, list markers set aside); the other 4 were not tried
+
+### Cells whose two rounds did not agree
+
+| Editor | Criterion | Workload | Measure | First seed / reason | Second seed, median |
+|---|---|---|---|---|---|
+| BetterOffice | C03 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C03 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| OnlyOffice (CryptPad build) | C03 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OpenDoc | C03 | complex-corpus | process_cold_fs_warm | 1185.5 ms | 1028.5 ms |
+| BetterOffice | C03 | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C03 | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| OnlyOffice (CryptPad build) | C03 | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OpenDoc | C03 | complex-corpus | warm_steady | 780.5 ms | 653.0 ms |
+| react-docx | C03 | prose-250kw | warm_steady | 8353.5 ms | 7384.5 ms |
+| OpenDoc | C03 | prose-500w | warm_steady | 759.0 ms | 666.0 ms |
+| BetterOffice | C04 | complex-corpus | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| Nutrient | C04 | complex-corpus | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| OnlyOffice (CryptPad build) | C04 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OpenDoc | C04 | complex-corpus | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| react-docx | C04 | complex-corpus | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| BetterOffice | C04 | prose-250kw | — | second: not enough samples (n = 3 of 10; reasons not_applicable: 7) | — |
+| Nutrient | C04 | prose-250kw | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| OnlyOffice (CryptPad build) | C04 | prose-250kw | — | 804.6 ms | 289.9 ms |
+| OpenDoc | C04 | prose-250kw | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| react-docx | C04 | prose-250kw | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| BetterOffice | C04 | prose-500w | — | first: not enough samples (n = 1 of 10; reasons not_applicable: 9); second: not enough samples (n = 2 of 10; reasons not_applicable: 8) | — |
+| Nutrient | C04 | prose-500w | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| OnlyOffice (CryptPad build) | C04 | prose-500w | — | 64.0 ms | 57.5 ms |
+| OpenDoc | C04 | prose-500w | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| react-docx | C04 | prose-500w | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| BetterOffice | C04 | prose-50kw | — | second: not enough samples (n = 4 of 10; reasons not_applicable: 6) | — |
+| Nutrient | C04 | prose-50kw | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| OpenDoc | C04 | prose-50kw | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| react-docx | C04 | prose-50kw | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| BetterOffice | C04 | prose-5kw | — | 60.8 ms | 91.5 ms |
+| Nutrient | C04 | prose-5kw | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| OnlyOffice (CryptPad build) | C04 | prose-5kw | — | first: not enough samples (n = 4 of 10; reasons not_applicable: 6) | — |
+| OpenDoc | C04 | prose-5kw | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| react-docx | C04 | prose-5kw | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
+| BetterOffice | C05 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C05 | complex-corpus | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| OnlyOffice (CryptPad build) | C05 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| BetterOffice | C05 | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C05 | complex-corpus | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| OnlyOffice (CryptPad build) | C05 | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| Nutrient | C05 | prose-250kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| OnlyOffice (CryptPad build) | C05 | prose-250kw | process_cold_fs_warm | 52.7 ms | 73.5 ms |
+| OpenDoc | C05 | prose-250kw | process_cold_fs_warm | 172.1 ms | 154.9 ms |
+| react-docx | C05 | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C05 | prose-250kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| react-docx | C05 | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C05 | prose-500w | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| Nutrient | C05 | prose-500w | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| Nutrient | C05 | prose-50kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| react-docx | C05 | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 1 of 10; reasons unverified: 9) | — |
+| Nutrient | C05 | prose-50kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| react-docx | C05 | prose-50kw | warm_steady | first: not enough samples (n = 1 of 10; reasons unverified: 9) | — |
+| Nutrient | C05 | prose-5kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| Nutrient | C05 | prose-5kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| BetterOffice | C06 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C06 | complex-corpus | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| OnlyOffice (CryptPad build) | C06 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| BetterOffice | C06 | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C06 | complex-corpus | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| OnlyOffice (CryptPad build) | C06 | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| Nutrient | C06 | prose-250kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| react-docx | C06 | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C06 | prose-250kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| react-docx | C06 | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C06 | prose-500w | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| Nutrient | C06 | prose-500w | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| Nutrient | C06 | prose-50kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| react-docx | C06 | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 1 of 10; reasons unverified: 9); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C06 | prose-50kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| react-docx | C06 | prose-50kw | warm_steady | first: not enough samples (n = 1 of 10; reasons unverified: 9); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C06 | prose-5kw | process_cold_fs_warm | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| Nutrient | C06 | prose-5kw | warm_steady | does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it) | — |
+| BetterOffice | C07 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10); second: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10) | — |
+| Nutrient | C07 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C07 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| Nutrient | C07 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C07 | prose-500w | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C07 | prose-50kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C07 | prose-5kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| BetterOffice | C08 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10); second: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10) | — |
+| Nutrient | C08 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C08 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| react-docx | C08 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C08 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C08 | prose-500w | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C08 | prose-500w | — | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) | — |
+| Nutrient | C08 | prose-50kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C08 | prose-5kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| BetterOffice | C09 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10); second: not enough samples (n = 0 of 10; reasons surface_not_dom_editable: 10) | — |
+| Nutrient | C09 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C09 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| react-docx | C09 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| BetterOffice | C09 | prose-250kw | — | 380.9 ms | 336.3 ms |
+| Nutrient | C09 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C09 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) | — |
+| Nutrient | C09 | prose-500w | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C09 | prose-500w | — | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) | — |
+| Nutrient | C09 | prose-50kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C09 | prose-50kw | — | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) | — |
+| Nutrient | C09 | prose-5kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C09 | prose-5kw | — | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) | — |
+| Nutrient | C10 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C10 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) | — |
+| BetterOffice | C11 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C11 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| OnlyOffice (CryptPad build) | C11 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| OpenDoc | C11 | complex-corpus | — | 1172.6 ms | 1320.3 ms |
+| react-docx | C11 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) | — |
+| Nutrient | C11 | prose-500kw | — | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| react-docx | C11 | prose-500kw | — | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) | — |
+| OpenDoc | C11 | prose-500w | — | 918.6 ms | 1044.8 ms |
+| BetterOffice | C12 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C12 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C12 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OpenDoc | C12 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| BetterOffice | C12 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C12 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C12 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OpenDoc | C12 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C12 | prose-250kw | — | first: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10); second: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10) | — |
+| BetterOffice | C12 | prose-500kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C12 | prose-500kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C12 | prose-500kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OpenDoc | C12 | prose-500kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C12 | prose-500kw | — | first: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10); second: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10) | — |
+| BetterOffice | C12 | prose-500w | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C12 | prose-500w | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C12 | prose-500w | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OpenDoc | C12 | prose-500w | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| BetterOffice | C12 | prose-50kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C12 | prose-50kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C12 | prose-50kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OpenDoc | C12 | prose-50kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C12 | prose-50kw | — | first: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10); second: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10) | — |
+| BetterOffice | C12 | prose-5kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| Nutrient | C12 | prose-5kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C12 | prose-5kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OpenDoc | C12 | prose-5kw | — | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C12 | prose-5kw | — | first: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10); second: not enough samples (n = 0 of 10; reasons anchor_identity_ambiguous: 10) | — |
+| Nutrient | C14 | complex-corpus | presented_frame | second: not enough samples (n = 3 of 10; reasons none counted) | — |
+| OnlyOffice (CryptPad build) | C14 | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| react-docx | C14 | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| BetterOffice | C14 | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| OnlyOffice (CryptPad build) | C14 | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OpenDoc | C14 | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| Nutrient | C14 | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| react-docx | C14 | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| BetterOffice | C14 | prose-250kw | usable_no_damage | first: not enough samples (n = 1 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| Nutrient | C14 | prose-250kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 10); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 10) | — |
+| OnlyOffice (CryptPad build) | C14 | prose-250kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OpenDoc | C14 | prose-250kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| BetterOffice | C14 | prose-500kw | presented_frame | 82787.2 ms | 71384.1 ms |
+| Nutrient | C14 | prose-500kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OnlyOffice (CryptPad build) | C14 | prose-500kw | presented_frame | 14104.2 ms | 12664.6 ms |
+| OpenDoc | C14 | prose-500kw | presented_frame | 22740.9 ms | 19848.5 ms |
+| react-docx | C14 | prose-500kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| BetterOffice | C14 | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| Nutrient | C14 | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OnlyOffice (CryptPad build) | C14 | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| OpenDoc | C14 | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| react-docx | C14 | prose-500kw | usable_no_damage | 51744.0 ms | 46351.6 ms |
+| Nutrient | C14 | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 4); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 3) | — |
+| react-docx | C14 | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| BetterOffice | C14 | prose-500w | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 1 of 10; reasons none counted) | — |
+| Nutrient | C14 | prose-500w | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 6); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 7) | — |
+| OnlyOffice (CryptPad build) | C14 | prose-500w | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 1 of 10; reasons crash: 9) | — |
+| OpenDoc | C14 | prose-500w | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| Nutrient | C14 | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| react-docx | C14 | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| BetterOffice | C14 | prose-50kw | usable_no_damage | first: not enough samples (n = 1 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| Nutrient | C14 | prose-50kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 10); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 10) | — |
+| OnlyOffice (CryptPad build) | C14 | prose-50kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OpenDoc | C14 | prose-50kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| Nutrient | C14 | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 4); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 5) | — |
+| react-docx | C14 | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| BetterOffice | C14 | prose-5kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 1 of 10; reasons none counted) | — |
+| Nutrient | C14 | prose-5kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 6); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 5) | — |
+| OnlyOffice (CryptPad build) | C14 | prose-5kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OpenDoc | C14 | prose-5kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) | — |
+| BetterOffice | C15 | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| Nutrient | C15 | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| OnlyOffice (CryptPad build) | C15 | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| OpenDoc | C15 | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| react-docx | C15 | micro-search | first_match | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| BetterOffice | C15 | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| Nutrient | C15 | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| OnlyOffice (CryptPad build) | C15 | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| OpenDoc | C15 | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| react-docx | C15 | micro-search | index_quiescence | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| BetterOffice | C15 | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| Nutrient | C15 | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| OnlyOffice (CryptPad build) | C15 | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| OpenDoc | C15 | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| react-docx | C15 | micro-search | replace_all | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| BetterOffice | C15 | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| Nutrient | C15 | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| OnlyOffice (CryptPad build) | C15 | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| OpenDoc | C15 | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| react-docx | C15 | micro-search | search_complete | first seed unpublishable: duplicate block index in one seed (blocked); second seed unpublishable: duplicate block index in one seed (blocked) | — |
+| Nutrient | C17 | complex-corpus | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| OnlyOffice (CryptPad build) | C17 | complex-corpus | after_edit_burst | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) | — |
+| react-docx | C17 | complex-corpus | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| OnlyOffice (CryptPad build) | C17 | complex-corpus | quiescent | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) | — |
+| OnlyOffice (CryptPad build) | C17 | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) | — |
+| react-docx | C17 | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C17 | prose-250kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C17 | prose-250kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| react-docx | C17 | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C17 | prose-500w | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C17 | prose-500w | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| react-docx | C17 | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C17 | prose-50kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C17 | prose-50kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| react-docx | C17 | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| Nutrient | C17 | prose-5kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
+| react-docx | C17 | prose-5kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
+| react-docx | C17 | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+
+### Every results cell that is not a single figure, and why
+
+One line for every cell of the results in the section "The editors measured later" that is not a single figure, with the reasons each launch recorded, as in Appendix J.
+
+| Table | Editor | Document | Printed | Why |
+|---|---|---|---|---|
+| Opening a document | Nutrient | 500,000 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: a check of the result failed; also the editor failed to load the document. |
+| Opening a document | OpenDoc | 500 words | 919 ms to 1.0 s | The first round gave 919 ms (10 launches) and the second 1.0 s (10 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
+| Opening a document | react-docx | 250,000 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: no redraw of the screen was seen after the action in the time allowed; also recorded as `no presented frame at or after the document surface`; also recorded as `FCP is not a C11 sample`. |
+| Opening a document | react-docx | 500,000 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: no redraw of the screen was seen after the action in the time allowed; also recorded as `no presented frame at or after the document surface`; also recorded as `FCP is not a C11 sample`. |
+| Typing one character | Nutrient | 500 words | does not apply | Recorded as: does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it). |
+| Typing one character | Nutrient | 5,000 words | does not apply | Recorded as: does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it). |
+| Typing one character | Nutrient | 50,000 words | does not apply | Recorded as: does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it). |
+| Typing one character | Nutrient | 250,000 words | does not apply | Recorded as: does not apply: Nutrient Web SDK is a viewer here: there is no caret and nothing to type into (no launch was scheduled for it). |
+| Typing one character | react-docx | 50,000 words | no figure | First round: 1 of 10 launches kept; 9 refused: a check of the result failed; also the typed character was not found in the editor afterwards. The second round kept enough launches. |
+| Typing one character | react-docx | 250,000 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: a check of the result failed; also the typed character was not found in the editor afterwards. |
+| Clicking to place the caret | Nutrient | 500 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Clicking to place the caret | Nutrient | 5,000 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Clicking to place the caret | Nutrient | 50,000 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Clicking to place the caret | Nutrient | 250,000 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Pasting a block of text | Nutrient | 500 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Pasting a block of text | Nutrient | 5,000 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Pasting a block of text | Nutrient | 50,000 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Pasting a block of text | Nutrient | 250,000 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Pasting a block of text | react-docx | 500 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: no redraw of the screen was seen after the action in the time allowed. |
+| Undoing | BetterOffice | 250,000 words | 336 ms to 381 ms | The first round gave 381 ms (10 launches) and the second 336 ms (10 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
+| Undoing | Nutrient | 500 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Undoing | Nutrient | 5,000 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Undoing | Nutrient | 50,000 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Undoing | Nutrient | 250,000 words | does not apply | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: recorded as `Nutrient Web SDK is a viewer here: there is no caret and nothing to type into`. |
+| Undoing | react-docx | 500 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: no redraw of the screen was seen after the action in the time allowed. |
+| Undoing | react-docx | 5,000 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: no redraw of the screen was seen after the action in the time allowed. |
+| Undoing | react-docx | 50,000 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: no redraw of the screen was seen after the action in the time allowed. |
+| Undoing | react-docx | 250,000 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: no redraw of the screen was seen after the action in the time allowed. |
