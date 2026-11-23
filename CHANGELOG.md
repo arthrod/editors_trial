@@ -22,6 +22,8 @@ Report E2 times the five tools added in v0.11.0 in the browser, in a campaign of
 - Report E2: a viewer's typing, clicking, pasting and undoing cells read "does not apply", with the runner's reason, in place of "not measured" or "scheduled count not recorded". Only for the criteria the runner leaves out of a viewer; any other zero count keeps its wording.
 - Report E2: a typing cell whose every session typed text that did not read back the same says so, with the sessions, the characters typed and where the text first differs (react-docx at 50,000 and 250,000 words), in place of "not enough sessions or run blocked".
 - Vendor notes: each of the five tools cites its Report E2 figures. react-docx's "its speed is not measured" and Nutrient's "in no other" report are gone, as is Report C §2.19's "all the trial measures of it".
+- Report E2's document check also compares the typing brief: typing trials record its SHA-256 but no document name, so the check had skipped them. The brief is the same file the earlier campaign typed (`perf/fixtures/briefs/sg-brief-13000w.txt`, the same bytes at its harness commits 4488f9b6 and 377b6320); a measured trial that names no document now refuses the build.
+- Harness fixes from review: the checkpoint's final copy retries a file that changed while copied and copies every other file before it fails; the OpenDoc engine fetch installs the bytes it hashed; a typing job pulled without its summary refuses only its own editor's table (the build still refuses).
 
 ## [0.12.0] - 2026-11-22
 
