@@ -2353,7 +2353,7 @@ def _main() -> int:
         "driver_checks": driver_checks,
         "commands": [
             "PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs %d" % args.pairs,
-            "PYTHONPATH=. python3 -m unittest discover -s perf/tests -q",
+            "PYTHONPATH=. uv run --no-project --with pytest --with pyfakefs --with pyyaml --with playwright --with pytest-timeout python -m pytest -q perf/tests",
             "python3 -I build/test_perf_plan_coverage.py",
         ],
     }

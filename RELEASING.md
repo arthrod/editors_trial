@@ -137,7 +137,7 @@ Every other "the only", "no editor" and "every editor" in the templates is in do
 
 ## 6. Gate (AGENTS.md §6)
 
-- [ ] Every `build/test_*.py` passes: `python3 -m unittest discover -s build -p "test_*.py"`.
+- [ ] Every `build/test_*.py` passes: `PYTHONPATH=. uv run --no-project --with pytest --with pyfakefs --with pyyaml --with playwright --with pytest-timeout python -m pytest -q build` (pytest collects both the unittest classes and the pytest functions).
 - [ ] `build/verify_publication.sh --with-word` passes **twice**, with no `WRONG-DOCUMENT` or `ORACLE-NOT-CLEAN` lines.
 - [ ] Every published `.docx` is Word valid: it opens in Word with no warning and no offer to repair.
 - [ ] `git status`: no stray caches (`harness/ui/genoffice/.vite-cache`: restore it), no `.env`, no design-system zip.
