@@ -233,3 +233,23 @@ def test_a_checkpoint_that_cannot_start_is_a_failure_line_not_a_stopped_campaign
     failures = []
     assert run.start_checkpoint(tmp_path / 'missing-dir', failures) is False
     assert failures and failures[0].startswith('checkpoint: not started:')
+
+
+def test_the_helper_is_given_an_absolute_campaign_root(tmp_path, monkeypatch):
+    """Sonar S8705 on #287: the helper's arguments come from the campaign root. Popen gets a list,
+    with no shell, so nothing is interpreted; the root is also passed resolved, so no argument
+    to the helper can begin with '-' whatever the folder is called."""
+    from perf.container import run
+    seen = []
+
+    class _Fake:
+        def __init__(self, argv, **_kw):
+            seen.append(argv)
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / '-campaign').mkdir()
+    monkeypatch.setattr(run.subprocess, 'Popen', _Fake)
+    assert run.start_checkpoint(Path('-campaign'), []) is True
+    root_arg = seen[0][seen[0].index('perf.container.checkpoint') + 1]
+    assert root_arg == str((tmp_path / '-campaign').resolve())
+    assert not root_arg.startswith('-')

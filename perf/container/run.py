@@ -230,7 +230,9 @@ def start_checkpoint(campaign_root: Path, failures: list[str]) -> bool:
     cannot start does not stop a paid campaign: the run goes on, and RUN-DONE
     names the missing checkpoint (CodeRabbit on #283, 2026-11-23).
     """
-    ckpt = [sys.executable, '-m', 'perf.container.checkpoint', str(campaign_root), str(os.getpid())]
+    # A list, no shell: nothing in it is interpreted. The root goes resolved, so
+    # no argument can begin with '-' (Sonar S8705 on #287).
+    ckpt = [sys.executable, '-m', 'perf.container.checkpoint', str(campaign_root.resolve()), str(os.getpid())]
     prio = ['nice', '-n', '19', 'ionice', '-c3']
     if not shutil.which('ionice'):
         prio = ['nice', '-n', '19']
