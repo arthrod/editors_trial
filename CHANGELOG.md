@@ -9,6 +9,63 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-23
+
+Report E2 times the five tools added in v0.11.0 in the browser, in a campaign of their own. The earlier campaign's editors were not run again and none of their figures moved: its facts are carried from `out/facts-v0.10.5.json`.
+
+### Updated
+- The five editors measured later enter Report E2 at these pins (SHA-256 of
+  the built editor tree, the same in every attempt and run folder that
+  measured them):
+  - BetterOffice: `05b0f162a22bf0a56f5769b04706f1534d3f36829df00675061f31e1d712e165`
+  - Nutrient: `9b95e5f587853cf87160f045bec935c2df6a048cf5c5c6ff5e23bec045a2ab86`, with
+    nutrient-viewer 1.25.0 loaded from Nutrient's CDN (owner's decision, disclosed)
+  - OnlyOffice (CryptPad's build): `3ab539c4b0552425585496c7fcceec6e201cf8ca426f18358c000910cdea145d`;
+    the typing jobs measured again (46, 47, 118, 119) ran at
+    `c1207eabd47041c86041b58d9bf2166be2beaa772f355b9d8c72dd7923f1d8d9`, the same
+    build with hyphens-to-dashes switched off on its page
+  - OpenDoc: `78bb78b33855c135faba0544f5fd6026cc71ee3de5b144b046829fab11d5bca0`
+  - react-docx: `bac2b64c9e8b89efc9c26ce3057fe3f4b2759dcc86fd12440760a7c4fc00267b`,
+    the same pin for its scrolling measured again
+- No pin of the earlier campaign's editors moved; their figures are carried.
+
+### Measured
+- **Report E2, "The editors measured later"** (BetterOffice, Nutrient, OnlyOffice in CryptPad's build, OpenDoc, react-docx). The same lanes, documents (same SHA-256) and machine type as the earlier campaign (Hugging Face Spaces, shared_guarded, AMD EPYC 7R13, CPU quota 8, Chromium 156.0.8078.80), two seeds on separate virtual machines, 2026-11-22 to 2026-11-23: 18 run folders, 152 jobs (76 per seed), 333 of 560 scheduled cells reproduced. Its own section with seven tables, and Appendix K for its machine, runs, differences and full tables; the report's build refuses a later campaign that differs in lanes, documents or machine type.
+- The typing jobs of OnlyOffice, BetterOffice and OpenDoc were measured again (12 jobs, four per editor): OnlyOffice's with hyphens-to-dashes switched off on its page, BetterOffice's and OpenDoc's after a fix to the harness's page witness. The reruns replace those jobs whole, and the replaced jobs are not counted anywhere in the report (inventory, machine notes, host load). OnlyOffice's rerun ran on a host build that differs by that one line, and its pin is disclosed beside the campaign's.
+- react-docx's scrolling (C10) was measured again on all five documents and both seeds (20 jobs, react-docx alone), after review found the lane's check of what is in view running inside the timed interval on react-docx's page (13 to 15 ms of a 30 to 42 ms sample on the 250,000-word document, on our computer). The check now runs after the first frame; the reruns replace those jobs whole (Appendix K). react-docx's C10 median: 116.8 to 61.5 ms at 250,000 words, 26.8 to 21.9 ms at 50,000 words, 17.9 ms to under one frame on the complex document.
+- Disclosed differences (owner's decisions): OnlyOffice's and OpenDoc's measured pages switch off sentence auto-capitalisation; OnlyOffice's also hyphens-to-dashes; OpenDoc's also automatic lists and its replace-as-you-type table. Nutrient is a viewer loaded from Nutrient's CDN (`nutrient-viewer` 1.25.0, now in the facts as `ver.cdn.nutrient`). C07 judges the caret after the click's own scroll. OnlyOffice's scrolling is read from canvas pixels.
+
+### Not re-measured
+- The earlier campaign's editors in Report E2: none was run again, and their
+  facts are carried from `out/facts-v0.10.5.json`.
+- Reports A to E, D1 and D2: no figure moved (Report C's Nutrient entry now
+  says it is timed in Report E2); their Word twins are rebuilt.
+
+### Added
+- Report E2's section "The editors measured later" and its Appendix K.
+
+### Changed
+- Report E2: a viewer's typing, clicking, pasting and undoing cells read "does not apply", with the runner's reason, in place of "not measured" or "scheduled count not recorded". Only for the criteria the runner leaves out of a viewer; any other zero count keeps its wording.
+- Report E2: a typing cell whose every session typed text that did not read back the same says so, with the sessions, the characters typed and where the text first differs (react-docx at 50,000 and 250,000 words), in place of "not enough sessions or run blocked".
+- Vendor notes: each of the five tools cites its Report E2 figures. react-docx's "its speed is not measured" and Nutrient's "in no other" report are gone, as is Report C §2.19's "all the trial measures of it".
+- Report E2's document check also compares the typing brief: typing trials record its SHA-256 but no document name, so the check had skipped them. The brief is the same file the earlier campaign typed (`perf/fixtures/briefs/sg-brief-13000w.txt`, the same bytes at its harness commits 4488f9b6 and 377b6320); a measured trial that names no document now refuses the build.
+- Report E2, "The editors measured later": the memory table reads memory two
+  seconds after a burst of typing, but Nutrient takes no typed text and
+  react-docx's burst failed in every launch. Their eight figures are now marked
+  "(no typing before it)", explained under the table, and left out of the
+  range sentence; the figures themselves did not move (CodeRabbit on #287).
+
+### Fixed
+- Harness fixes from review: the checkpoint's final copy retries a file that changed while copied and copies every other file before it fails; the OpenDoc engine fetch installs the bytes it hashed; a typing job pulled without its summary refuses only its own editor's table (the build still refuses).
+- Further review fixes (CodeRabbit on #283 and #287), none moving a published
+  figure: the scrolling lane (C10) also checks that the content moved at the
+  scroll itself, not only by the later read; a second start of WordCraft or
+  OpenDoc in one run on other bytes keeps the first tree hash and blocks
+  publication; the click lane (C07) counts scroll events during the caret read,
+  so a scroll away and back is refused; OpenDoc's typing reader gives the whole
+  document or no text; another editor's unfinished typing job no longer blocks
+  a complete cell; the checkpoint helper is given an absolute path.
+
 ## [0.12.0] - 2026-11-22
 
 Report E times the three tools added in v0.11.0 that can run without a browser. The earlier editors were not run again and none of their figures moved.

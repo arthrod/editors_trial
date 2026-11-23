@@ -3,9 +3,9 @@
  * discovered phases must match RUN_CRITERIA_SUITE_PHASES and have injection coverage.
  */
 import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const repo = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const criteriaPath = `${repo}/perf/runner/criteria_input.mjs`;
 const moduleUrl = pathToFileURL(criteriaPath).href;
 const { RUN_CRITERIA_SUITE_PHASES } = await import(moduleUrl);

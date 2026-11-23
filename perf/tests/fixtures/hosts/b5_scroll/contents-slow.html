@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: a display:contents wrapper whose style reads are slow once scrolled</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      #doc {
+        box-sizing: border-box;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 12px;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The document inside one display:contents wrapper, as react-docx mounts it: the wrapper has no box, its children do. -->
+    <div id="doc"><div id="wrap" style="display: contents"></div></div>
+    <script>
+      // Once the scroller has moved, the first three style reads cost 250 ms
+      // of main thread each. A probe that reads styles between the scroll and
+      // its frame (the C10 content walk) pushes that frame out by at least
+      // 250 ms; a probe that reads them only after the witness has its frame
+      // does not.
+      (function () {
+        var real = window.getComputedStyle;
+        var slow = 3;
+        window.getComputedStyle = function (el, pseudo) {
+          var doc = document.getElementById("doc");
+          if (doc && doc.scrollTop > 0 && slow > 0) {
+            slow -= 1;
+            var until = performance.now() + 250;
+            while (performance.now() < until) {}
+          }
+          return real.call(window, el, pseudo);
+        };
+      })();
+    </script>
+    <script src="/corpus.js"></script>
+    <script>
+      window.__b5.render(document.getElementById("wrap")).catch(function (error) {
+        window.__b5Error = String(error);
+        window.__docxReady = true;
+      });
+    </script>
+  </body>
+</html>

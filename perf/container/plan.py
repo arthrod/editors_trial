@@ -87,8 +87,11 @@ def main(argv=None):
     parser.add_argument('--shakedown', type=int, default=None)
     parser.add_argument('--skip', default='', help='comma list of job indices already measured')
     parser.add_argument('--blocks', type=int, default=2, help='interleaved blocks per seed (publication layout)')
+    parser.add_argument('--campaign', default='e2', choices=('e2', 'later'),
+                        help="e2: the published campaign's editors; later: editors added after it")
     args = parser.parse_args(argv)
-    editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
+    from .policy import campaign_editors
+    editors = campaign_editors(args.campaign)
     jobs = publication_jobs(editors, args.seed, args.seed2, 'shared_guarded', blocks=args.blocks)
     skip = {int(t) for t in args.skip.split(',') if t}
     todo = [i for i in range(len(jobs)) if i not in skip]

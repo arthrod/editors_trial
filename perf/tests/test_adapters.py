@@ -49,6 +49,12 @@ class Capabilities(unittest.TestCase):
                 "canvas",
                 "docsplus",
                 "libreoffice",
+                # Report E2's later campaign (perf/container/policy.LATER_CAMPAIGN_EDITORS).
+                "reactdocx",
+                "nutrient",
+                "onlyoffice",
+                "betteroffice",
+                "opendoc",
             },
         )
 

@@ -130,6 +130,22 @@ FEATURE_SWITCH_PROBE = {
         ("perfE2e", "fixture", "reviewRail"),
     ),
     "folio": ("repos/folio/packages/playground", "reads only ?file= (fixture path)", ("file",)),
+    # Report E2's later editors (browser lane only; not in the CI-contract list,
+    # whose seeded order would change for every published editor).
+    "reactdocx": ("harness/ui/react-docx", "reads only ?doc= (fixture URL) and ?review=1 (shows tracked changes and comments)", ("doc", "review")),
+    "nutrient": ("harness/ui/nutrient", "reads only ?doc= (fixture URL); the viewer itself comes from Nutrient's CDN at the pinned version", ("doc",)),
+    "onlyoffice": (
+        "harness/ui/onlyoffice",
+        "main.js reads only ?doc= (fixture URL) and ?convert-ms= (how long to wait for x2t's conversion)",
+        ("doc", "convert-ms"),
+    ),
+    "betteroffice": ("harness/ui/betteroffice", "reads only ?doc= (fixture URL)", ("doc",)),
+    "opendoc": (
+        "repos/opendoc/webapp (harness/ui/opendoc/host.mjs adds ?doc=)",
+        "editor.html reads its host request from location.search (capabilities.mjs): "
+        "?prefs= (spellcheck, grammar, ...), ?aiProvider=, ?room=, ?chrome=, ?can=, ?mode=, ?autosave= and more",
+        ("doc", "prefs", "aiProvider", "room", "chrome", "can", "mode", "autosave"),
+    ),
     "office-open": ("harness/officeopen", "headless round-trip CLI, no feature flags", ()),
     "libreoffice": ("system soffice", "headless --convert-to command line, no feature flags", ()),
 }
@@ -418,6 +434,28 @@ def _write_measured(
     trial["evidence"] = evidence
     validate_trial(trial)
     return write_attempt(attempt_dir, _attempt_id(criterion_id, phase, editor_id), trial)
+
+
+def _same_block_with_insertion(before: str, after: str, typed: str) -> bool:
+    """Can `after` be `before` with one run of the typed letters inserted at one place?
+
+    Both are the first 160 characters of the block at the caret, so either may
+    be cut short: the text after the insertion only has to agree as far as both go.
+    """
+    if before == after:
+        return True
+    letters = set(typed)
+    i = 0
+    while i < min(len(before), len(after)) and before[i] == after[i]:
+        i += 1
+    tail = before[i:]
+    for k in range(0, len(after) - i + 1):
+        if k and after[i + k - 1] not in letters:
+            break
+        rest = after[i + k:]
+        if rest.startswith(tail) or tail.startswith(rest):
+            return True
+    return False
 
 
 def _write_outcome(
@@ -883,6 +921,52 @@ def _browser_rows(
                 }
                 for pair in pairs
             ]
+            # The burst is checked by reading the text block at the caret's point.
+            # When that block is a different one after the burst, the view moved
+            # under the caret (react-docx scrolls on typing; HF e2-publish
+            # shakedown 2026-11-22): the edit cannot be verified there, which is
+            # a failure of the editor's own behaviour, not a host that takes no text.
+            # Only the pairs whose edit failed, and only when the block after
+            # cannot be the block before with typed letters inserted at one
+            # place (a partial burst into the same paragraph is not a move;
+            # Codex review 2026-11-22).
+            moved = [
+                {"scope_before": oracle.get("scope_before"), "scope_after": oracle.get("scope_after")}
+                for oracle in (
+                    ((pair.get("edited") or {}).get("probe", {}).get("edit_oracle") or {})
+                    for pair in pairs
+                    if not (pair.get("edited") or {}).get("probe", {}).get("edit_effective")
+                )
+                if oracle.get("scope_before") and oracle.get("scope_after")
+                and not _same_block_with_insertion(oracle["scope_before"], oracle["scope_after"], BURST_TEXT)
+            ]
+            if moved:
+                reason = (
+                    "caret_block_moved: after %d keyboard.type of %r the text block at the caret's point was a "
+                    "different block (%s), so the editor moved the view under the caret and the edit could not "
+                    "be verified; no post-edit memory sample exists"
+                    % (args.burst, BURST_TEXT, json.dumps(moved, sort_keys=True))
+                )
+                path = _write_outcome(
+                    attempt_dir=attempt_dir,
+                    criterion_id="C17",
+                    phase=phase,
+                    editor_id=editor_id,
+                    lane=lane,
+                    env=env,
+                    outcome="failed",
+                    failure_reason=reason,
+                    evidence=_evidence(
+                        phase=phase,
+                        method_sample=samples[0],
+                        phases=PHASES,
+                        extra={"edit_effective": False, "burst": diagnostics["burst"], "caret_block_moved": moved},
+                    ),
+                    diagnostic=diagnostics,
+                    refusal_code="caret_block_moved",
+                )
+                rows.append(_row("C17", phase, editor_id, "failed", reason, path))
+                continue
             reason = (
                 "host accepted no text: document text length did not grow after %d keyboard.type of %r "
                 "(%s); no post-edit memory sample exists for this host"
@@ -1288,6 +1372,38 @@ def _process_rows(
 # ---------------------------------------------------------------------------
 
 
+# Hosts whose inspection FOUND a switch for a P0-P3 profile feature. C22 applies
+# to them, and this lane has no P0-P3 matrix driver, so their C22 is recorded
+# not_run with the switches as evidence, never not_applicable
+# (test_memory_criteria: "C22 must be implemented for it instead of being
+# recorded not_applicable"). Keyed by editor; every other editor keeps the
+# not_applicable record below unchanged. Values quote the vendor's own source.
+PROFILE_SWITCHES_FOUND = {
+    "opendoc": {
+        "proofing": (
+            "?prefs={\"spellcheck\":false,\"grammar\":false}: capabilities.mjs PREFERENCES rows "
+            "spellcheck -> spellCheck and grammar -> grammarCheck, both flags"
+        ),
+        "ai_panel": (
+            "?aiProvider=off: capabilities.mjs, \"`off` withdraws AI, bring-your-own key included\""
+        ),
+        "collaboration": (
+            "?room=<ws: or wss: URL>: capabilities.mjs, \"THE ROOM ITSELF\" (needs a relay; "
+            "collab_transport.mjs roomUrl refuses anything else)"
+        ),
+    },
+}
+
+
+def _c22_not_driven_reason(editor_id: str) -> str:
+    found = PROFILE_SWITCHES_FOUND[editor_id]
+    return (
+        "%s exposes P0-P3 feature switches (%s), so C22 applies to it; this lane has no P0-P3 "
+        "matrix driver, so C22 is not measured: %s"
+        % (editor_id, ", ".join(sorted(found)), "; ".join("%s %s" % (k, found[k]) for k in sorted(found)))
+    )
+
+
 def _feature_switch_reason(editor_id: str, execution_profile: str) -> str:
     host, inspected, params = FEATURE_SWITCH_PROBE[editor_id]
     detail = "" if params else " The host has no query parameter or flag at all."
@@ -1312,8 +1428,31 @@ def _c22_row(*, editor_id, lane, attempt_dir, args, fixture_sha, docx_size, work
         cache_state="process_cold_fs_warm",
         execution_profile=args.execution_profile,
     )
-    reason = _feature_switch_reason(editor_id, args.execution_profile)
     host, inspected, params = FEATURE_SWITCH_PROBE[editor_id]
+    if editor_id in PROFILE_SWITCHES_FOUND:
+        # Gated on the hosts that do have a switch (OpenDoc only): applicable,
+        # not driven. Every other editor falls through to not_applicable.
+        reason = _c22_not_driven_reason(editor_id)
+        path = _write_outcome(
+            attempt_dir=attempt_dir,
+            criterion_id="C22",
+            phase=None,
+            editor_id=editor_id,
+            lane=lane,
+            env=env,
+            outcome="not_run",
+            failure_reason=reason,
+            evidence={
+                "state": "feature_profile_switch_not_driven",
+                "inspected": inspected,
+                "host": host,
+                "switches_found": list(params),
+                "profile_switches": dict(PROFILE_SWITCHES_FOUND[editor_id]),
+                "features_required": list(PROFILE_FEATURES),
+            },
+        )
+        return _row("C22", None, editor_id, "not_run", reason, path)
+    reason = _feature_switch_reason(editor_id, args.execution_profile)
     path = _write_outcome(
         attempt_dir=attempt_dir,
         criterion_id="C22",

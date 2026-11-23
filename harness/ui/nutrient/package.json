@@ -1,0 +1,9 @@
+{
+  "name": "nutrient-host",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "devDependencies": {
+    "vite": "8.3.8"
+  }
+}

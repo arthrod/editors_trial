@@ -109,7 +109,7 @@ PYTHONPATH=. python3 perf/runner/adversarial_c10_scroll.py --editor plate --out-
 Tests and coverage gate:
 
 ```sh
-python3 -m unittest discover -s perf/tests -q
+PYTHONPATH=. uv run --no-project --with pytest --with pyfakefs --with pyyaml --with playwright --with pytest-timeout python -m pytest -q perf/tests
 python3 -I build/test_perf_plan_coverage.py
 ```
 

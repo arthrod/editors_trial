@@ -1122,7 +1122,11 @@ async def session(target, text, args, directory):
                         or not isinstance(load.get('frame_interval_ms'), (int, float))):
                     raise SessionRefusal('frame_interval_unavailable', refusal_code='witness_unavailable')
                 verdict = validate_witness(load['witness'])
-                result.update(load_witness=load, load_ms=load['witness']['frame_page_ms'] if verdict['ok'] else None,
+                # An editor in a frame of its host page (OnlyOffice) is witnessed on
+                # the frame's clock; the bridge sends how much later that clock
+                # starts, absent (0) for every other editor.
+                offset = load.get('frame_clock_offset_ms') or 0
+                result.update(load_witness=load, load_ms=load['witness']['frame_page_ms'] + offset if verdict['ok'] else None,
                               load_refusal=verdict['reason'])
                 await sampler.mark('load')
                 result['resource_endpoints'] = {'after_load':await sampler.endpoint()}
@@ -1298,8 +1302,12 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
         directory = args.out_root; directory.mkdir(parents=True,exist_ok=True)
         select_fixture(target, empty); server = None
         try:
-            server = start_host(editor,target)
-            result, series = asyncio.run(session(target,text,args,directory))
+            refused = viewer_refusal(target)
+            if refused:
+                result, series = refused, []
+            else:
+                server = start_host(editor,target)
+                result, series = asyncio.run(session(target,text,args,directory))
         except ModuleNotFoundError as exc:
             result, series = {'failure_reason': 'dependency_missing',
                               'refusal_code': 'dependency_missing',
@@ -1343,6 +1351,18 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
     return 0
 
 _main = main_cell  # B6's common smoke dispatcher entrypoint.
+
+def viewer_refusal(target):
+    """A viewer's target names why typing cannot apply (Nutrient); None for an editor.
+
+    The session is not started: there is nothing to type into, and an hour-long
+    session that can only fail would waste the job's machine.
+    """
+    reason = target.get('viewer_not_applicable')
+    if not reason:
+        return None
+    return {'outcome': 'not_applicable', 'failure_reason': reason, 'refusal_code': 'not_applicable'}
+
 
 def main():
     return run_cli(main_cell,'benchmark_typing',BROWSER_TARGETS)

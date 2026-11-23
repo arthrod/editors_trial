@@ -26,6 +26,8 @@ _FACTS_KEYS = {
     "opendoc": ("ver.opendoc.commit",),
     "betteroffice": ("ver.npm.betteroffice",),
     "onlyoffice": ("ver.release.onlyoffice_x2t.tag",),
+    "reactdocx": ("ver.npm.reactdocx",),
+    "nutrient": ("ver.cdn.nutrient",),
     "libreoffice": (),
 }
 
@@ -35,7 +37,7 @@ _LIBREOFFICE_FALLBACK = "system soffice"
 # stopping every caller (a missing key stopped a run that named one of them, before it
 # wrote its summary); once the facts name them, they are read like any other.
 UNPINNED = "not pinned: this lane is in no published release yet"
-_PENDING = frozenset({"opendoc", "betteroffice", "onlyoffice"})
+_PENDING = frozenset({"opendoc", "betteroffice", "onlyoffice", "reactdocx", "nutrient"})
 
 
 def load_editor_pins(facts_path: Path | None = None) -> dict[str, str]:

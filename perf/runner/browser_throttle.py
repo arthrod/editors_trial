@@ -111,18 +111,19 @@ def _monotonic_ms(reading):
 
 
 #: Lax layer (owner decision 2026-11-11; issue #155 item 6): a sample whose
-#: cgroup throttled away no more than max(1 ms, 1 % of the sample's own
-#: wall-clock span) stays measurable -- the scheduler's occasional 100-200 us
-#: slice theft is not the editor's result -- with ``throttled_usec`` recorded
-#: on the kept row; anything above refuses exactly as before.
-THROTTLE_TOLERANCE_MIN_USEC = 1000.0
-THROTTLE_TOLERANCE_SPAN_FRACTION = 0.01
+#: cgroup throttled away no more than the tolerance below stays measurable,
+#: with ``throttled_usec`` recorded on the kept row; anything above refuses.
+#: Owner decision 2026-11-22: max(100 ms, 10 % of the sample's own wall-clock
+#: span), was max(1 ms, 1 %) (the published E2 campaign ran under that).
+THROTTLE_TOLERANCE_MIN_USEC = 100_000.0
+THROTTLE_TOLERANCE_SPAN_FRACTION = 0.10
 
 
 def throttle_tolerance_usec(span_ms=None):
-    """max(1 ms, 1 % of the sample's span) in microseconds.
+    """max(THROTTLE_TOLERANCE_MIN_USEC, THROTTLE_TOLERANCE_SPAN_FRACTION of the
+    sample's span) in microseconds.
 
-    An unknown span (``None``) keeps only the 1 ms floor: without a span the
+    An unknown span (``None``) keeps only the floor: without a span the
     percentage part is unverified, so it is never assumed."""
     span = (
         float(span_ms)

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import random
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -220,6 +221,32 @@ def write_job_campaign_meta(job_dir: Path, payload: dict) -> None:
     artifacts.atomic_write(path, json.dumps(existing, sort_keys=True) + '\n')
 
 
+def start_checkpoint(campaign_root: Path, failures: list[str]) -> bool:
+    """Start the checkpoint helper (checkpoint.py) beside the campaign.
+
+    Owner's request (2026-11-22): the campaign's in-progress files go to the
+    bucket every 5 minutes, and a separate verified duplicate at the end. Lowest
+    CPU and I/O priority: it shares the Space with timed samples. A helper that
+    cannot start does not stop a paid campaign: the run goes on, and RUN-DONE
+    names the missing checkpoint (CodeRabbit on #283, 2026-11-23).
+    """
+    # A list, no shell: nothing in it is interpreted. The root goes resolved, so
+    # no argument can begin with '-' (Sonar S8705 on #287).
+    ckpt = [sys.executable, '-m', 'perf.container.checkpoint', str(campaign_root.resolve()), str(os.getpid())]
+    prio = ['nice', '-n', '19', 'ionice', '-c3']
+    if not shutil.which('ionice'):
+        prio = ['nice', '-n', '19']
+    try:
+        with open(campaign_root / 'checkpoint.log', 'a') as ckpt_log:
+            subprocess.Popen([*prio, *ckpt], stdout=ckpt_log, stderr=subprocess.STDOUT,
+                             stdin=subprocess.DEVNULL, start_new_session=True)
+    except OSError as exc:
+        print(f'CHECKPOINT-NOT-STARTED {exc}', flush=True)
+        failures.append(f'checkpoint: not started: {exc}')
+        return False
+    return True
+
+
 def main(argv: list[str] | None = None):
     if argv is None:
         argv = sys.argv[1:]
@@ -245,10 +272,13 @@ def main(argv: list[str] | None = None):
                         help='narrow each picked job to these editors; the job keeps its index (#185)')
     parser.add_argument('--blocks', type=int, default=None,
                         help='N: the publication layout, N interleaved blocks per seed, every editor in each')
+    parser.add_argument('--campaign', default='e2', choices=('e2', 'later'),
+                        help="e2: the published campaign's editors; later: editors added after it")
     args = parser.parse_args(argv)
     from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
     from perf.runner.browser_hosts import host_policy
-    editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
+    from .policy import campaign_editors
+    editors = campaign_editors(args.campaign)
     if args.editors is not None:
         unknown = sorted(set(args.editors) - set(editors))
         if unknown:
@@ -365,6 +395,8 @@ def main(argv: list[str] | None = None):
     jobs_started: set[int] = set()
     pending_mirror_alive_pid: int | None = None
     run_log = campaign_root / 'RUN.log'
+    if args.publish and not args.dry_run:
+        start_checkpoint(campaign_root, failures)
     try:
         for index, (name, options) in enumerate(jobs):
             if not selected(index):

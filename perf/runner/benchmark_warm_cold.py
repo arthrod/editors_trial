@@ -328,6 +328,201 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
+    # react-docx (@extend-ai/react-docx, added to the trial in v0.11.0): the
+    # host page is the package's own quick start in edit mode
+    # (harness/ui/react-docx/main.js). It styles inline, so the selectors are
+    # its data attributes: one [data-docx-page-wrapper] per page (mounted as a
+    # window of a long document), one [data-docx-paragraph-host] per paragraph;
+    # only the active paragraph is contenteditable="true", a click activates
+    # one. A key lands once the click is inside a paragraph's text (probed 2026-11-22: the paragraph takes focus and the
+    # controller's canUndo turns true). The text check reads the model through
+    # the controller's own export, getDocxBytes().
+    "reactdocx": {
+        "lane": "browser",
+        "cwd": UI / "react-docx",
+        # 5225: 5221 is Fidus's proxy, which may already be running on the host.
+        "command": ["pnpm", "exec", "vite", "--port", "5225", "--strictPort", "--host", "127.0.0.1"],
+        # C10: the document sits in a display:contents wrapper (adversarial_c10_scroll.mjs).
+        "c10_through_contents": True,
+        "url": "http://127.0.0.1:5225/",
+        "corpus_route": "/sample.docx",
+        "ready_selector": "[data-docx-page-wrapper] [data-docx-paragraph-host]",
+        # The page's own flag, set when the controller reports a loaded
+        # document (harness/ui/react-docx/main.js).
+        "ready_js": (
+            "!!(window.__host && window.__host.ready === true && "
+            "document.querySelector('[data-docx-page-wrapper] [data-docx-paragraph-host]'))"
+        ),
+        "error_js": "window.__host && window.__host.error",
+        # The editor's root, not a paragraph: the input lane reads read-only
+        # off the first element this matches, and a paragraph is
+        # contenteditable="false" until clicked. Caret placement goes through
+        # the react-docx adapter in edit_surface.mjs.
+        "edit_selector": "[data-docx-editor-root]",
+        "typing_edit_selector": "[data-docx-editor-root]",
+        "typing_click_selector": "[data-docx-page-body] [data-docx-paragraph-host]",
+        "typing_present_selector": "[data-docx-editor-root]",
+        "typing_model_js": (
+            "(async () => { const c = window.__host && window.__host.viewer.getController(); "
+            "if (!c || !c.getDocxBytes) return null; const b = await c.getDocxBytes(); "
+            "return b ? { docx_bytes: Array.from(new Uint8Array(b)) } : null; })()"
+        ),
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    # Nutrient Web SDK, a viewer: it converts the .docx to a PDF in the browser
+    # and shows that. Only opening applies (no caret, nothing to type into).
+    # The viewer is loaded from Nutrient's CDN (harness/ui/nutrient/main.js), so
+    # a cold open includes that download; the report says so. Selectors read
+    # in Chrome on prose-500w (2026-11-22): pages are
+    # section[data-is-page][data-page-index] inside .PSPDFKit-Scroll, loaded
+    # lazily (data-page-is-loaded).
+    "nutrient": {
+        "lane": "browser",
+        "cwd": UI / "nutrient",
+        "command": ["pnpm", "exec", "vite", "--port", "5226", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5226/",
+        "corpus_route": "/sample.docx",
+        "ready_selector": "section[data-is-page][data-page-is-loaded=true]",
+        # The pages live in the viewer's shadow root, which document.querySelector
+        # does not enter; the host's flag is set when the converted document is
+        # shown (NutrientViewer.load resolved).
+        "ready_js": "!!(window.__host && window.__host.ready === true)",
+        "error_js": "window.__host && window.__host.error",
+        "edit_selector": "section[data-is-page]",
+        "driver": "playwright",
+        # Read by the typing lane (benchmark_typing.viewer_refusal).
+        "viewer_not_applicable": (
+            "Nutrient Web SDK is a viewer here: there is no caret and nothing to type into"
+        ),
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+        },
+    },
+    # OnlyOffice's document editor, the CryptPad build (no document server):
+    # harness/ui/onlyoffice. The page is plain files with OnlyOffice's own
+    # release archives under vendor/, served unbuilt (browser_hosts.py
+    # STATIC_PAGES). OnlyOffice runs in a same-origin frame of the page; the
+    # lanes' page calls go there (editor_frame.mjs), so every expression and
+    # selector below must hold in the host page (before the frame exists) and
+    # in the editor's frame. It draws on the #id_viewer canvas; the text is
+    # read from its model (edit_surface.mjs, model 'onlyoffice').
+    "onlyoffice": {
+        "lane": "browser",
+        "cwd": UI / "onlyoffice",
+        "url": "http://127.0.0.1:5223/",
+        "corpus_route": "/sample.docx",
+        # The host page's frame, then the editor's canvas inside it.
+        "ready_selector": "#root iframe, #id_viewer",
+        # The host page's flag: OnlyOffice's onDocumentReady
+        # (harness/ui/onlyoffice/main.js), read from either document.
+        "ready_js": (
+            "(() => { const h = window.__host || (window.parent !== window ? window.parent.__host : null); "
+            "return !!(h && h.ready === true); })()"
+        ),
+        "error_js": (
+            "(() => { const h = window.__host || (window.parent !== window ? window.parent.__host : null); "
+            "return h && h.error; })()"
+        ),
+        # The canvas a click lands on: OnlyOffice's overlay over the page
+        # canvas (#id_viewer) takes every pointer event (probed: elementFromPoint).
+        "edit_selector": "#id_viewer_overlay",
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    # BetterOffice (@betteroffice/docx-react, added to the trial in v0.11.0):
+    # the host page is the package's own usage in its default editing mode
+    # (harness/ui/betteroffice/main.js). It paints each page on a
+    # <canvas data-page-index> inside [data-docx-pages-host] and takes keys
+    # through a caret-sized textarea.paged-editor__input, focused on load and
+    # moved to the caret by a click (probed 2026-11-22). Its text is in a
+    # worker; the lanes read it through the editor ref's own async API
+    # (edit_surface.mjs, model 'betteroffice'). Its vite.config's 5214 is
+    # Docen's port: the command names 5222.
+    "betteroffice": {
+        "lane": "browser",
+        "cwd": UI / "betteroffice",
+        "command": ["pnpm", "exec", "vite", "--port", "5222", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5222/",
+        "corpus_route": "/sample.docx",
+        "ready_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        # The page's own flag, set when whenLayoutComplete() resolves
+        # (harness/ui/betteroffice/main.js).
+        "ready_js": (
+            "!!(window.__host && window.__host.ready === true && "
+            "document.querySelector('[data-docx-pages-host] canvas[data-page-index]'))"
+        ),
+        "error_js": "window.__host && window.__host.error",
+        # The first page's canvas: a model surface's caret click lands at the
+        # middle of the first match (page 1 is 1056 px tall from y=148 in a
+        # 900 px viewport, so the middle is on screen).
+        "edit_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        # The typing lane's keystroke witness watches every page, not page 1:
+        # typing 81,225 characters runs onto later pages and page 1 scrolls out
+        # of view, so a page-1 region read as empty and the Spaces refused 770
+        # of 811 keystrokes as not_document_scoped (2026-11-22). The load
+        # witness keeps page 1, as before.
+        "typing_present_selector": "[data-docx-pages-host]",
+        "typing_load_present_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        # The editor's own export: save() returns the document as DOCX bytes
+        # (downloadOnSave is off on this page).
+        "typing_model_js": (
+            "(async () => { const r = window.__host && window.__host.ref && window.__host.ref.current; "
+            "if (!r || typeof r.save !== 'function') return null; const b = await r.save(); "
+            "return b ? { docx_bytes: Array.from(new Uint8Array(b)) } : null; })()"
+        ),
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    # OpenDoc (CasualOffice/opendoc at ver.opendoc.commit): the vendor's own
+    # editor application, served as it ships by harness/ui/opendoc/host.mjs.
+    # The editor opens `./sample.docx` on boot (its documented startup
+    # document), which is the corpus route. The engine (Rust to WebAssembly)
+    # paints each page onto a canvas and keeps keyboard input in a caret-sized
+    # textarea; the host shim (host.js) publishes the ready flag: open, page 1's
+    # raster canvas mounted, two frames. Its font upgrade (some faces from a
+    # CDN) runs after that, and `__host.settled` marks it; the edit surface
+    # waits for it (edit_surface.mjs EDIT_SURFACES.opendoc). Every text check,
+    # the typing lane's included, reads the engine through the editor's host
+    # contract, opendoc.ai.read (edit_surface.mjs, model 'opendoc').
+    "opendoc": {
+        # "browser", like the other later editors: capabilities.LANES lists it
+        # (test_browser_lane_label); its page is OpenDoc's web app.
+        "lane": "browser",
+        "cwd": UI / "opendoc",
+        "command": ["node", "host.mjs", "--port", "5224"],
+        "url": "http://127.0.0.1:5224/",
+        "corpus_route": "/sample.docx",
+        "ready_selector": '#pages .page-wrap[data-page-number="1"] canvas.page',
+        "ready_js": "!!(window.__host && window.__host.ready === true)",
+        "error_js": "window.__host && window.__host.error",
+        # Page 1's sheet (its canvas and the caret overlay above it). It
+        # carries no contenteditable attribute, so the input lane does not read
+        # it as read-only; the caret goes through EDIT_SURFACES.opendoc.
+        "edit_selector": '#pages .page-wrap[data-page-number="1"]',
+        # As BetterOffice's: the typing lane's keystroke witness watches every
+        # page (typing runs past page 1); the load witness keeps page 1.
+        "typing_present_selector": "#pages",
+        "typing_load_present_selector": '#pages .page-wrap[data-page-number="1"]',
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
 }
 
 
@@ -2158,7 +2353,7 @@ def _main() -> int:
         "driver_checks": driver_checks,
         "commands": [
             "PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs %d" % args.pairs,
-            "PYTHONPATH=. python3 -m unittest discover -s perf/tests -q",
+            "PYTHONPATH=. uv run --no-project --with pytest --with pyfakefs --with pyyaml --with playwright --with pytest-timeout python -m pytest -q perf/tests",
             "python3 -I build/test_perf_plan_coverage.py",
         ],
     }

@@ -4,9 +4,9 @@ import { publishableRecord, quietWindow, refusedRecord } from './witness_records
  */
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const repo = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const moduleUrl = pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href;
 
 const {

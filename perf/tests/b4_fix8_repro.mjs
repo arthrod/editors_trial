@@ -1,9 +1,9 @@
 /**
  * B4 fix round 8: crash event without isClosed → page_lost via target state.
  */
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const repo = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const moduleUrl = pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href;
 const { runCriteriaSuite } = await import(moduleUrl);
 

@@ -273,7 +273,7 @@ and times until the next painted frame, one fresh browser per pair.
 ### Tests and coverage gate
 
 ```sh
-python3 -m unittest discover -s perf/tests -q
+PYTHONPATH=. uv run --no-project --with pytest --with pyfakefs --with pyyaml --with playwright --with pytest-timeout python -m pytest -q perf/tests
 python3 -I build/test_perf_plan_coverage.py
 ```
 

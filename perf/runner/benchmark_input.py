@@ -170,7 +170,7 @@ def _probe_env(editor_id: str, target: dict, fixture: Path, *, workload_id: str,
 
 def _write_criteria_refusals(attempt_dir: Path, editor_id: str, workload_row: dict,
                              fixture_sha: str, fixture_size: int, *,
-                             failure_reason: str, refusal_code: str) -> None:
+                             failure_reason: str, refusal_code: str, outcome: str = "failed") -> None:
     """One refused trial per scheduled criterion for a launch that produced no payload."""
     from perf.runner.benchmark_ci_contract import _trial_dict
     catalog = criteria_input_io._catalog()
@@ -185,7 +185,7 @@ def _write_criteria_refusals(attempt_dir: Path, editor_id: str, workload_row: di
             criterion_id=cid,
             layer=catalog[cid]["layer"],
             boundary=catalog[cid]["boundary"],
-            outcome="failed",
+            outcome=outcome,
             env=env,
             samples_ms=[],
             failure_reason=failure_reason,
@@ -220,6 +220,14 @@ def _refuse_run(editor_id: str, attempt_dir: Path, workload_row: dict,
 def run_editor(editor_id: str, attempt_dir: Path, workload_id: str = "micro-paragraphs") -> dict:
     target = BROWSER_TARGETS[editor_id]
     fixture, fixture_sha, fixture_size, workload_row = _fixture(editor_id, workload_id)
+    viewer = target.get("viewer_not_applicable")
+    if viewer:
+        # A viewer (Nutrient) has no caret: none of the input criteria can
+        # apply. Recorded with its reason; the page is not started.
+        _write_criteria_refusals(
+            attempt_dir, editor_id, workload_row, fixture_sha, fixture_size,
+            failure_reason=viewer, refusal_code="not_applicable", outcome="not_applicable")
+        return {"editor_id": editor_id, "outcome": "not_applicable", "failure_reason": viewer}
     from perf.runner.browser_hosts import select_fixture
     try:
         select_fixture(target, fixture)

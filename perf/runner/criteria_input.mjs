@@ -316,6 +316,93 @@ export function caretOverlapsLine(caret, line) {
   return overlap >= height / 2;
 }
 
+/**
+ * C07: is the caret on the clicked line? `line` is the line's box read before
+ * the click, in viewport pixels; `scrolled` is how far the click's own handling
+ * scrolled that content (px, downwards; RECORD_CLICK_SCROLL). Owner's decision
+ * (2026-11-22), for every editor: a click that scrolled is judged against where
+ * the clicked line ended up, and only there, so a caret left at the line's old
+ * place is refused (Codex review 2026-11-22); a click that scrolled nothing, or
+ * whose scroll could not be read, gets exactly the old verdict
+ * (perf/tests/test_e2_c07_click_scroll.py).
+ */
+/**
+ * Read the surface state between two reads of the click's own scroll
+ * (RECORD_CLICK_SCROLL): its delta and the number of scroll events seen on the
+ * clicked line's scrollers and the window. The second read waits one frame,
+ * so a scroll made during the read has dispatched its event. `stable` is true
+ * only when both reads agree: deltas within half a pixel and no scroll event
+ * in between, so no scroll was seen during the caret read. A scroll away and
+ * back during the read leaves the deltas equal but counts its events, so it is
+ * unstable (CodeRabbit on #287). When both reads are absent (the recorder is
+ * not on the page) the scroll is unknown, not known to be still: `stable` is
+ * true only so that the click gets the old verdict, which does not use a delta.
+ * `scrolled` is the later delta.
+ */
+export async function readStateWithClickScroll(page, readState) {
+  const read = (settle) =>
+    page
+      .evaluate(async (wait) => {
+        const rec = window.__c07Scroll;
+        if (!rec) return null;
+        if (wait) await new Promise((r) => requestAnimationFrame(() => r()));
+        return { delta: rec.delta(), events: rec.events ? rec.events() : null };
+      }, settle)
+      .catch(() => null);
+  const before = await read(false);
+  const state = await readState();
+  const after = await read(true);
+  const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+  const dBefore = before && finite(before.delta) ? before.delta : null;
+  const dAfter = after && finite(after.delta) ? after.delta : null;
+  const quiet = !before || !after || before.events === after.events;
+  const stable =
+    (before === null && after === null) ||
+    (dBefore !== null && dAfter !== null && Math.abs(dAfter - dBefore) <= 0.5 && quiet);
+  return { state, scrolled: dAfter, stable };
+}
+
+export function caretOnClickedLine(caret, line, scrolled) {
+  const shift = Number(scrolled);
+  if (line && scrolled !== null && scrolled !== undefined && Number.isFinite(shift) && shift !== 0) {
+    const moved = { top: Number(line.top) - shift, bottom: Number(line.bottom) - shift };
+    return caretOverlapsLine(caret, moved)
+      ? { on_line: true, after_click_scroll: true }
+      : { on_line: false, after_click_scroll: false };
+  }
+  return { on_line: caretOverlapsLine(caret, line), after_click_scroll: false };
+}
+
+/**
+ * Page function: remember the scroll offsets of every scroller above the
+ * element at (x, y), crossing shadow roots, and the window's. Read before the
+ * click, outside the timed window; `window.__c07Scroll.delta()` later gives
+ * how far the click's own handling scrolled that content (px, downwards).
+ * The document's own scroller is the window's scroll, counted once through
+ * window.scrollY, never also as an element of the chain.
+ */
+const RECORD_CLICK_SCROLL = ({ x, y }) => {
+  const chain = [];
+  let el = document.elementFromPoint(x, y);
+  while (el) {
+    const own = el === document.scrollingElement || el === document.documentElement || el === document.body;
+    if (!own && el.scrollHeight > el.clientHeight) chain.push([el, el.scrollTop]);
+    el = el.parentElement || (el.getRootNode && el.getRootNode().host) || null;
+  }
+  const winY = window.scrollY;
+  // Scroll events on the chain and the window: a scroll away and back leaves
+  // the delta unchanged, its events do not (readStateWithClickScroll).
+  let events = 0;
+  const count = () => { events += 1; };
+  for (const [node] of chain) node.addEventListener('scroll', count, { passive: true });
+  window.addEventListener('scroll', count, { passive: true });
+  window.__c07Scroll = {
+    delta: () => chain.reduce((sum, [node, top]) => sum + (node.scrollTop - top), 0) + (window.scrollY - winY),
+    events: () => events,
+  };
+  return window.__c07Scroll;
+};
+
 export const DOCUMENT_PROTECTED_READ_ONLY = 'document_protected_read_only';
 export const CARET_MOVE_NOT_PAINTED = 'caret_move_not_painted';
 export const CLICK_PAINT_NOT_OBSERVED = 'click_paint_not_observed';
@@ -682,6 +769,31 @@ const INSTALL_INPUT_TAP = () => {
       // The event target is the hit-test result: an element inside the editable
       // surface means the click reached the editor and not a surrounding chrome.
       tap.target = event.target;
+      // The target's ancestors at the event, on react-docx's page only (its
+      // window.__host carries the viewer's controller). react-docx activates a
+      // paragraph by replacing it, leaving tap.target detached by the time it
+      // is checked; the path is where the click landed. Every other editor
+      // records nothing here and keeps its old verdict (outside review,
+      // 2026-11-22; perf/tests/test_e2_detached_click.py).
+      const reactDocxPage = Boolean(
+        window.__host && window.__host.viewer && typeof window.__host.viewer.getController === 'function',
+      );
+      tap.targetPath = reactDocxPage && typeof event.composedPath === 'function'
+        ? event.composedPath().filter((node) => node && node.nodeType === 1)
+        : null;
+      // And whether the target sat inside the editable at the event: react-docx
+      // can replace the very element the selector matches, so its detached
+      // copy is in the path while the matched parts are the new copy (CodeAnt
+      // on #283, 2026-11-23). One closest() on the selector armed before the
+      // click (armInsideSelector); every other page records nothing.
+      tap.targetInsideAtEvent = null;
+      if (reactDocxPage && tap.insideSelector && event.target && typeof event.target.closest === 'function') {
+        try {
+          tap.targetInsideAtEvent = Boolean(event.target.closest(tap.insideSelector));
+        } catch {
+          tap.targetInsideAtEvent = null;
+        }
+      }
       const el = event.target;
       push('pointerdown', {
         x: event.clientX,
@@ -954,6 +1066,27 @@ const READ_EDITABLE_STATE = (selector) => {
       }
     }
   }
+  // react-docx keeps its input in a 1 px textarea at the caret it paints, so
+  // the browser range is 0×0 (probed 2026-11-22). Its host page is the one
+  // whose window.__host carries the viewer's controller; on it, the focused
+  // caret-sized textarea inside the editor is the caret.
+  const reactDocxHost = Boolean(
+    window.__host && window.__host.viewer && typeof window.__host.viewer.getController === 'function',
+  );
+  if ((!caret || !(caret.height > 0)) && reactDocxHost && activeTag === 'textarea' && focusInEditor) {
+    const rect = active.getBoundingClientRect();
+    if (rect.height > 0 && rect.width <= 4) {
+      caret = {
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        height: rect.height,
+        collapsed: !selectionExpanded,
+      };
+      anchorInside = true;
+    }
+  }
   const descendantEditable = Boolean(
     typeof el.querySelector === 'function' && el.querySelector('[contenteditable="true"]'),
   );
@@ -1216,8 +1349,29 @@ async function clearInputs(page) {
       window.__perfCriteria.inputs.length = 0;
       if (window.__perfCriteria.targets) window.__perfCriteria.targets.length = 0;
       window.__perfCriteria.target = null;
+      window.__perfCriteria.targetPath = null;
+      window.__perfCriteria.targetInsideAtEvent = null;
     }
   });
+}
+
+/**
+ * Give the input tap the editable's selector before a click, outside any timed
+ * window, so react-docx's page can record at the event whether the click
+ * landed inside it (INSTALL_INPUT_TAP). Model, flag and hidden surfaces have
+ * their own check (POINTER_TARGET_SURFACE) and arm nothing.
+ */
+export async function armInsideSelector(page, meta) {
+  const spec = meta && meta.surface;
+  const selector =
+    spec && (spec.kind === 'model' || spec.kind === 'flag' || spec.hidden)
+      ? null
+      : (meta && meta.editable && meta.editable.selector) || null;
+  await page
+    .evaluate((sel) => {
+      if (window.__perfCriteria) window.__perfCriteria.insideSelector = sel;
+    }, selector)
+    .catch(() => {});
 }
 
 /**
@@ -1259,6 +1413,19 @@ async function pointerTargetInside(page, selector) {
       typeof parts[0].matches === 'function' && parts[0].matches('[data-paragraph-id][data-start]')
         ? parts[0].closest('.docx-page-content')
         : null;
+    // A target the editor removed after the event is judged by its
+    // ancestors at the event; a connected target is judged as it stands.
+    // targetPath is recorded on react-docx's page only (INSTALL_INPUT_TAP).
+    const path = window.__perfCriteria && window.__perfCriteria.targetPath;
+    if (target.isConnected === false && Array.isArray(path)) {
+      const atEvent = window.__perfCriteria.targetInsideAtEvent;
+      return {
+        inside: atEvent === true || path.some((el) => parts.includes(el) || el === fragmentRoot),
+        reason: null,
+        target_detached: true,
+        inside_at_event: typeof atEvent === 'boolean' ? atEvent : null,
+      };
+    }
     return {
       inside:
         parts.some((el) => el === target || el.contains(target)) ||
@@ -1834,6 +2001,225 @@ const READ_SURFACE_STATE = (spec) => {
     };
   }
 
+  // OnlyOffice (model 'onlyoffice', only its target): read in its editor frame
+  // (editor_frame.mjs). The text is its logic document's (main document, by
+  // the host page's reader, window.__host.text()); the
+  // keyboard is its textarea #area_id; its caret is a DOM element it draws,
+  // #id_target_cursor (2 px wide, probed 2026-11-22), in page coordinates
+  // because the frame sits at the page's origin.
+  if (spec.kind === 'model' && spec.model === 'onlyoffice') {
+    const api = window.editor;
+    const logic = api && api.WordControl && api.WordControl.m_oLogicDocument;
+    if (!logic || typeof logic.GetAllParagraphs !== 'function') {
+      return { ...base, error: 'editor_model_unavailable' };
+    }
+    const host = window.__host || (window.parent !== window ? window.parent.__host : null);
+    const text = host && typeof host.text === 'function' ? host.text() : null;
+    if (text === null) return { ...base, error: 'editor_model_unavailable' };
+    const viewMode = typeof api.getViewMode === 'function' && api.getViewMode() === true;
+    const active = document.activeElement;
+    const current = typeof logic.GetCurrentParagraph === 'function' ? logic.GetCurrentParagraph() : null;
+    const inMain = typeof logic.GetDocPosType === 'function' ? logic.GetDocPosType() === 0 : false;
+    const target = document.getElementById('id_target_cursor');
+    let caret = null;
+    if (target && getComputedStyle(target).display !== 'none' && getComputedStyle(target).visibility !== 'hidden') {
+      const r = target.getBoundingClientRect();
+      if (r.height > 0) {
+        caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height,
+          collapsed: typeof logic.IsSelectionUse === 'function' ? !logic.IsSelectionUse() : true };
+      }
+    }
+    const el = document.querySelector(spec.pageRoot || spec.selector);
+    return {
+      ...base,
+      text,
+      text_length: text.length,
+      text_source: 'onlyoffice_model',
+      input_reachable: !viewMode,
+      read_only: viewMode,
+      active_inside: Boolean(active && active.id === 'area_id'),
+      active_tag: active ? String(active.tagName || '').toLowerCase() : null,
+      anchor_inside: Boolean(current && inMain),
+      selection_offset: null,
+      selection_expanded: typeof logic.IsSelectionUse === 'function' ? logic.IsSelectionUse() === true : false,
+      caret,
+      caret_block_text: current ? host.caretParagraphText() : null,
+      box: boxOf(el),
+    };
+  }
+
+  if (spec.kind === 'model' && spec.model === 'betteroffice') {
+    // BetterOffice keeps its text in a worker; its editor ref reads it
+    // asynchronously (readParagraphs flushes pending input first). The page
+    // function returns a promise, which page.evaluate awaits. The caret is
+    // the focused caret-sized textarea.paged-editor__input the editor moves
+    // to the caret it paints; the offset is the caret paragraph's place in
+    // the joined text plus the text before the caret (readSelectionInfo).
+    const ref = window.__host && window.__host.ref && window.__host.ref.current;
+    if (!ref || typeof ref.readParagraphs !== 'function' || typeof ref.readSelectionInfo !== 'function') {
+      return { ...base, error: 'editor_model_unavailable' };
+    }
+    const pageEl = document.querySelector(spec.pageRoot);
+    const host = document.querySelector(spec.inputHost);
+    if (!pageEl || !host) return { ...base, error: 'editable_not_found' };
+    return Promise.all([ref.readParagraphs({ view: 'accepted' }), ref.readSelectionInfo()]).then(
+      ([read, info]) => {
+        if (!read || read.ok !== true || !Array.isArray(read.paragraphs)) {
+          return { ...base, error: 'editor_model_unavailable' };
+        }
+        const texts = read.paragraphs.map((p) => String((p && p.text) || ''));
+        const text = texts.join('\n');
+        let offset = null;
+        let blockText = null;
+        if (info && typeof info.paraId === 'string') {
+          let at = 0;
+          for (let i = 0; i < read.paragraphs.length; i += 1) {
+            if (read.paragraphs[i].paraId === info.paraId) {
+              offset = at + String(info.before || '').length;
+              blockText = texts[i];
+              break;
+            }
+            at += texts[i].length + 1;
+          }
+        }
+        const expanded = Boolean(info && info.selectedText);
+        const active = document.activeElement;
+        const input = host.querySelector('textarea.paged-editor__input');
+        const inputFocused = Boolean(input && active === input);
+        let caret = null;
+        if (inputFocused) {
+          const r = input.getBoundingClientRect();
+          if (r.height > 0 && r.width <= 4) {
+            caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, collapsed: !expanded };
+          }
+        }
+        const readOnly = Boolean(input && (input.readOnly || input.disabled));
+        return {
+          ...base,
+          text,
+          text_length: text.length,
+          text_source: 'betteroffice_model',
+          input_reachable: !readOnly,
+          read_only: readOnly,
+          active_inside: Boolean(active && host.contains(active)),
+          active_tag: active ? String(active.tagName || '').toLowerCase() : null,
+          anchor_inside: offset !== null,
+          selection_offset: offset,
+          selection_expanded: expanded,
+          caret,
+          caret_block_text: blockText,
+          box: boxOf(pageEl),
+        };
+      },
+      () => ({ ...base, error: 'editor_model_unavailable' }),
+    );
+  }
+
+  if (spec.kind === 'model' && spec.model === 'opendoc') {
+    // OpenDoc (harness/ui/opendoc): text from the engine through the editor's
+    // host contract (opendoc.ai.read, a promise); the caret is the editor's own
+    // overlay element, drawn from the engine's geometry above the page canvas;
+    // keyboard input is the caret-sized #editorTextInput; the selection is the
+    // last `selection` event the editor announced (kept by the host shim).
+    const session = window.opendoc;
+    const host = window.__host || {};
+    const el = document.querySelector(spec.pageRoot || spec.selector);
+    const scroller = document.querySelector(spec.inputHost || '#viewport');
+    if (!el) return { ...base, error: 'editable_not_found' };
+    if (!session || !session.ai || typeof session.ai.read !== 'function') {
+      return { ...base, error: 'editor_model_unavailable' };
+    }
+    // The whole document or nothing: a page that is refused, a truncated
+    // page with no cursor to continue, or a cap reached before the last page
+    // is an unavailable model, never a shorter text (CodeRabbit on #283). A
+    // table block carries no `text`; its cells are read through the table
+    // tool, row page by row page, under the same rule (CodeAnt on #283).
+    // A block page says `truncated` and then must carry a cursor; a table's
+    // row page carries only `nextCursor` (repos/opendoc/crates/casual-doc-ai/
+    // src/read.rs: 618-627 and 898).
+    const PAGE_CAP = 100000;
+    const readAll = async (first, next, take, tablePages = false) => {
+      let answer = await session.ai.read(first);
+      for (let page = 0; page < PAGE_CAP; page += 1) {
+        if (!answer || !answer.ok || !answer.value) return false;
+        if (!(await take(answer.value))) return false;
+        const more = tablePages ? Boolean(answer.value.nextCursor) : Boolean(answer.value.truncated);
+        if (!more) return true;
+        if (!answer.value.nextCursor) return false;
+        answer = await session.ai.read(next(answer.value.nextCursor));
+      }
+      return false;
+    };
+    return (async () => {
+      const lines = [];
+      const takeRows = async (value) => {
+        for (const row of value.rows || []) {
+          for (const cell of row.cells || []) lines.push(String(cell.text || ''));
+        }
+        return true;
+      };
+      const takeBlocks = async (value) => {
+        for (const block of value.blocks || []) {
+          if (typeof block.text === 'string') lines.push(block.text);
+          else if (block.kind === 'table' && block.id) {
+            const whole = await readAll(
+              { tool: 'table', table: block.id },
+              (rows) => ({ tool: 'table', table: block.id, cursor: rows }),
+              takeRows,
+              true,
+            );
+            if (!whole) return false;
+          }
+        }
+        return true;
+      };
+      const whole = await readAll({ tool: 'read' }, (cursor) => ({ tool: 'read', cursor }), takeBlocks);
+      if (!whole) return { ...base, error: 'editor_model_unavailable' };
+      const text = lines.join('\n');
+      const sel = host.selection || null;
+      const anchor = sel && sel.anchor;
+      let caretBlockText = null;
+      if (anchor && anchor.node) {
+        const at = await session.ai.read({ tool: 'read', start: String(anchor.node), maxTokens: 1 });
+        const block = at && at.ok && at.value && (at.value.blocks || [])[0];
+        caretBlockText = block && typeof block.text === 'string' ? block.text : null;
+      }
+      let caret = null;
+      for (const mark of document.querySelectorAll('#pages .overlay .caret')) {
+        const r = mark.getBoundingClientRect();
+        const cs = getComputedStyle(mark);
+        if (r.height > 4 && cs.display !== 'none' && cs.visibility !== 'hidden') {
+          caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, collapsed: !(sel && sel.hasRange) };
+          break;
+        }
+      }
+      const input = document.getElementById('editorTextInput');
+      if (!caret && input && document.activeElement === input) {
+        const r = input.getBoundingClientRect();
+        caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, collapsed: !(sel && sel.hasRange) };
+      }
+      const mode = document.querySelector('[data-review-mode][aria-checked="true"]');
+      const viewing = Boolean(mode && mode.getAttribute('data-review-mode') === 'viewing');
+      const active = document.activeElement;
+      return {
+        ...base,
+        text,
+        text_length: text.length,
+        text_source: 'opendoc_model',
+        input_reachable: Boolean(input && !input.disabled && !input.readOnly) && !viewing,
+        read_only: viewing,
+        active_inside: Boolean(active && scroller && (active === scroller || scroller.contains(active))),
+        active_tag: active ? String(active.tagName || '').toLowerCase() : null,
+        anchor_inside: Boolean(anchor && anchor.node),
+        selection_offset: anchor && Number.isFinite(anchor.offset) ? anchor.offset : null,
+        selection_expanded: Boolean(sel && sel.hasRange),
+        caret,
+        caret_block_text: caretBlockText,
+        box: boxOf(el),
+      };
+    })().catch(() => ({ ...base, error: 'editor_model_unavailable' }));
+  }
+
   if (spec.kind === 'model' && spec.model === 'canvas_editor') {
     const inst = window.__CANVAS_EDITOR_INSTANCE__;
     const cmd = inst && inst.command;
@@ -2374,7 +2760,10 @@ async function measureClicks(page, meta, options = {}) {
     }
     observation.fresh_state = freshState;
     await clearInputs(page);
+    await armInsideSelector(page, meta);
     let input = null;
+    // Where the content sits before the click (caretOnClickedLine).
+    await page.evaluate(RECORD_CLICK_SCROLL, { x: point.x, y: point.y }).catch(() => null);
     const clickRegion = clickPaintRegion(point);
     observation.click_region = clickRegion;
     const armClick = async () => {
@@ -2428,7 +2817,10 @@ async function measureClicks(page, meta, options = {}) {
       continue;
     }
     observation.diagnostic_raf_ms = round(await rafDelta(page, input.t), 3);
-    const state = await readStateFor(page, meta);
+    const { state, scrolled: clickScrolled, stable: scrollStable } = await readStateWithClickScroll(
+      page,
+      () => readStateFor(page, meta),
+    );
     observation.active_tag = state.active_tag || null;
     observation.active_inside = state.active_inside === true;
     observation.anchor_inside = state.anchor_inside === true;
@@ -2464,7 +2856,23 @@ async function measureClicks(page, meta, options = {}) {
       observation.caret_evidence = surface.hidden ? 'hidden_pm_selection' : 'model_selection';
       observation.model_selection_offset = state.selection_offset ?? null;
     } else {
-      const caretOnLine = point.line === null ? true : caretOverlapsLine(state.caret, point.line);
+      let caretOnLine = point.line === null ? true : caretOverlapsLine(state.caret, point.line);
+      if (point.line) {
+        // Did the click scroll its content? Then the moved line is the only place (caretOnClickedLine).
+        // The delta is read just before and just after the caret; if the
+        // content moved between them the two do not describe one viewport,
+        // and the point is refused rather than judged (CodeRabbit on #283).
+        if (!scrollStable) {
+          observation.failure = 'click_scroll_moved_during_caret_read';
+          entry.assertion.failures.push(`${point.point}: click_scroll_moved_during_caret_read`);
+          continue;
+        }
+        const scrolled = clickScrolled;
+        const verdict = caretOnClickedLine(state.caret, point.line, scrolled);
+        observation.click_scrolled_px = Number.isFinite(scrolled) ? round(scrolled, 1) : null;
+        caretOnLine = verdict.on_line;
+        if (verdict.after_click_scroll) observation.caret_on_line_after_click_scroll = true;
+      }
       observation.caret_on_clicked_line = caretOnLine;
       observation.caret_evidence = 'dom_caret';
       caretPlaced = state.anchor_inside === true && caretOnLine;
@@ -2976,6 +3384,7 @@ async function measureUndo(page, witness, options, meta) {
   }
   const clickXY = editClickXY(point);
   await clearInputs(page);
+  await armInsideSelector(page, meta);
   await page.mouse.click(clickXY.x, clickXY.y);
   await settle(page);
   const target = await pointerTargetInsideFor(page, meta);
@@ -3316,6 +3725,7 @@ async function measureBulkInsert(page, witness, options, meta) {
   }
   const clickXY = editClickXY(point);
   await clearInputs(page);
+  await armInsideSelector(page, meta);
   await page.mouse.click(clickXY.x, clickXY.y);
   await settle(page, 200);
   const target = await pointerTargetInsideFor(page, meta);
@@ -3366,6 +3776,18 @@ async function measureBulkInsert(page, witness, options, meta) {
           kinds: ['paste', 'beforeinput'],
           inputTypePrefix: undefined,
         });
+        // OpenDoc pastes from its own keydown handler through the async
+        // Clipboard API: no paste or beforeinput event reaches the page
+        // (probed 2026-11-22: Meta+V inserts the clipboard text, and the page
+        // sees only keydown Meta and keydown V). Its paste input is that
+        // keydown. Gated on OpenDoc's surface, so every other editor's paste
+        // input stays the paste/beforeinput event (test_e2_opendoc_lanes).
+        if (pasteInput === null && meta.surface && meta.surface.model === 'opendoc') {
+          pasteInput =
+            (await firstInput(page, { kind: 'keydown', key: 'V' })) ||
+            (await firstInput(page, { kind: 'keydown', key: 'v' }));
+          if (pasteInput !== null) observation.paste_input = 'keydown';
+        }
         return pasteInput?.t ?? null;
       },
     });
@@ -4555,6 +4977,8 @@ export async function runCriteriaSuite({
 
 export {
   CONTENT_MIN_CHANGED_PIXELS,
+  INSTALL_INPUT_TAP,
+  RECORD_CLICK_SCROLL,
   measureBulkInsert,
   measureClicks,
   measureQuiescence,
@@ -4563,6 +4987,7 @@ export {
   prepareInputSurface,
   prepareChromeForEditing,
   READ_EDITABLE_STATE,
+  READ_SURFACE_STATE,
   READ_SUPERDOC_TEXT,
   OBSERVE_QUIESCENCE,
   assertBulkInsertBody,

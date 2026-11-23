@@ -16,7 +16,13 @@ commit as the site's latest `github-pages` deployment. When the site has moved
 on, the hashes no longer match and the engine has to be built from the checkout
 instead (`webapp/build.sh`: Rust 1.96.0, wasm-pack, binaryen).
 Nothing tracked in the checkout is changed: `webapp/pkg/` is build output.
+
+OPENDOC_ENGINE_DIR names a folder holding a copy of those two files, read before
+the site: a file there is taken only if its SHA-256 is the pinned one. The site
+moved on on 2026-11-22, so the Spaces of the later campaign get the pinned build
+copied from a machine that fetched it while the site still served it.
 """
+import os
 import hashlib
 import sys
 import urllib.request
@@ -43,6 +49,12 @@ def main() -> int:
         path = pkg / name
         if path.exists() and hashlib.sha256(path.read_bytes()).hexdigest() == want:
             print(f"{name}: present")
+            continue
+        copy = Path(os.environ["OPENDOC_ENGINE_DIR"]) / name if os.environ.get("OPENDOC_ENGINE_DIR") else None
+        data = copy.read_bytes() if copy is not None and copy.is_file() else None
+        if data is not None and hashlib.sha256(data).hexdigest() == want:
+            path.write_bytes(data)  # the bytes that were hashed, not a second read of the file
+            print(f"{name}: copied from {copy.parent} (the pinned build, SHA-256 checked)")
             continue
         req = urllib.request.Request(SITE + name, headers={"User-Agent": "docx-benchmark-harness"})
         try:

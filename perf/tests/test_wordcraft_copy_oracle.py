@@ -125,7 +125,8 @@ class ScrollAdapter(unittest.TestCase):
     def test_wordcraft_scrolls_its_overlay_and_the_witness_watches_its_canvas(self):
         from perf.runner import adversarial_c10_scroll as c10
 
-        self.assertEqual(c10.HOST_SCROLL_CONTAINERS, {"wordcraft": "#wc-scroll"})
+        # E2: OpenDoc names its own page scroller (test_e2_opendoc_lanes).
+        self.assertEqual(c10.HOST_SCROLL_CONTAINERS, {"wordcraft": "#wc-scroll", "opendoc": "#viewport"})
         self.assertEqual(c10.adapter_selectors("wordcraft"),
                          {"container": "#wc-scroll", "document": "#wordcraft_canvas"})
         for editor in ("plate", "docxodus", "superdoc", "genoffice", "canvas", "docen", "eigenpal", "folio"):

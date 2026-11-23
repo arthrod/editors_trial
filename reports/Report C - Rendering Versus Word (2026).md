@@ -973,7 +973,7 @@ Two controls narrow it down. They are the corpus with one construct removed, the
 
 ### 2.19 Nutrient — a viewer: seven pages for Word's six
 
-**Added in v0.11.0.** **What it is.** Nutrient Web SDK (`nutrient-viewer` 1.25.0) is a commercial, closed-source document SDK from Nutrient, formerly PSPDFKit. It is a viewer here, not an editor: in the browser it converts the `.docx` to a PDF and shows that PDF. It was run from Nutrient's CDN with no key, in its trial mode, which draws "For Evaluation Purposes Only" in red across the top of every page. The watermark is Nutrient's, not the document's; it is left in the figures, not removed. It has no round-trip lane, because it does not save a `.docx`: this section is all the trial measures of it. This benchmark is not affiliated with, sponsored by or endorsed by Nutrient.
+**Added in v0.11.0.** **What it is.** Nutrient Web SDK (`nutrient-viewer` 1.25.0) is a commercial, closed-source document SDK from Nutrient, formerly PSPDFKit. It is a viewer here, not an editor: in the browser it converts the `.docx` to a PDF and shows that PDF. It was run from Nutrient's CDN with no key, in its trial mode, which draws "For Evaluation Purposes Only" in red across the top of every page. The watermark is Nutrient's, not the document's; it is left in the figures, not removed. It has no round-trip lane, because it does not save a `.docx`: besides this section, the trial measures only how fast it opens, scrolls and how much memory it takes in the browser (Report E2, "The editors measured later"). This benchmark is not affiliated with, sponsored by or endorsed by Nutrient.
 
 **Hosted:** a host page under `harness/ui/nutrient/` (port 5216). The capture asks the SDK for its page count and page sizes.
 

@@ -54,8 +54,13 @@ def tree_hash(root):
 
 
 class StaticHost:
-    def __init__(self, root, *, port=0, corpus_route='/corpus.docx', fixture=None, headers=None):
+    def __init__(self, root, *, port=0, corpus_route='/corpus.docx', fixture=None, headers=None,
+                 extra_roots=()):
         root = Path(root).resolve()
+        # Directories outside root a resolved path may also land in. Empty for
+        # every built host (a build directory holds its whole tree); a static
+        # page names the fetched vendor trees it links to (STATIC_PAGES).
+        allowed = (root, *(Path(r).resolve() for r in extra_roots))
         self.fixture = fixture
         host = self
         class Handler(SimpleHTTPRequestHandler):
@@ -73,7 +78,7 @@ class StaticHost:
                 if marker in pathname:
                     path = '/docxodus-dist/' + pathname.split(marker, 1)[1]
                 resolved = Path(super().translate_path(path)).resolve()
-                if not resolved.is_relative_to(root):
+                if not any(resolved.is_relative_to(r) for r in allowed):
                     return str(root / '__forbidden__')
                 return str(resolved)
 
@@ -116,6 +121,39 @@ ADAPTERS = {
     'superdoc': 'wrapper', 'canvas': 'wrapper', 'docen': 'wrapper',
     'eigenpal': 'eigenpal_config', 'folio': 'wrapper',
 }
+
+
+# Hosts whose page is plain files with nothing to build: served as they stand
+# by StaticHost, hashed instead of built. OnlyOffice's page
+# (harness/ui/onlyoffice: index.html, main.js, x2t_worker.js) loads
+# OnlyOffice's own release archives, unpacked unmodified under vendor/ by
+# fetch.py (SHA-512 pinned). vendor/ may be a symlink to a shared copy (local
+# worktrees), so its trees are named as extra roots and hashed through their
+# resolved paths. Every other editor keeps its build path.
+STATIC_PAGES = {
+    'onlyoffice': {'files': ('index.html', 'main.js', 'x2t_worker.js'),
+                   'vendor': ('vendor/editor', 'vendor/x2t')},
+}
+
+
+def static_page_meta(editor, target, policy):
+    """Provenance of an unbuilt page: the hash of its own files and of each vendor tree."""
+    spec = STATIC_PAGES[editor]
+    cwd = Path(target['cwd']).resolve()
+    parts = {}
+    for name in spec['files']:
+        parts[name] = hashlib.sha256((cwd / name).read_bytes()).hexdigest()
+    for name in spec['vendor']:
+        tree = (cwd / name).resolve()
+        if not tree.is_dir():
+            raise FileNotFoundError(f'{editor}: {cwd / name} is missing (run its fetch script)')
+        parts[name] = tree_hash(tree)
+    digest = hashlib.sha256()
+    for name in sorted(parts):
+        digest.update(f'{name}\0{parts[name]}\n'.encode())
+    return {**policy, 'adapter': 'static_page', 'outcome': 'ok', 'failure_reason': None,
+            'tree_sha256': digest.hexdigest(), 'tree_parts': parts, 'build_directory': None,
+            'static_root': str(cwd), 'extra_roots': [str((cwd / n).resolve()) for n in spec['vendor']]}
 
 
 class HostBuildError(RuntimeError):
@@ -196,6 +234,59 @@ def build_host(editor, target, out_root, *, repos_root=None):
             log.write(build_log)
 
 
+def _validated(run, editor, policy, describe):
+    """Run a static host's provenance check; a failure leaves the host unpublishable.
+
+    ``start_host`` stores the production policy (publishable) first. A tree
+    that is missing or unreadable raised past it, so the run still listed the
+    host as publishable (CodeRabbit on #283, 2026-11-23).
+    """
+    try:
+        return describe()
+    except Exception as exc:
+        if run is not None:
+            run.hosts[editor] = {**policy, 'host_build': 'build_failed', 'outcome': 'failed',
+                                 'failure_reason': 'host_build', 'publishable': False,
+                                 'publication_block_reason': f'static host validation failed: {exc}'}
+        raise
+
+
+def host_tree_now(editor, meta):
+    """The provenance hash of the bytes this host serves now, to compare at the run's end.
+
+    A static host serves its files from disk for every sample, so the hash taken
+    when it started describes the run only if the files did not change since
+    (CodeRabbit on #283, 2026-11-23). None when the host records no tree.
+    """
+    if meta.get('adapter') == 'static_page' and meta.get('static_root'):
+        return static_page_meta(editor, {'cwd': meta['static_root']}, {})['tree_sha256']
+    if meta.get('tree_root'):
+        return tree_hash(Path(meta['tree_root']))
+    if meta.get('build_directory'):
+        return tree_hash(Path(meta['build_directory']))
+    return None
+
+
+def _keep_first_tree(run, editor, meta):
+    """Record a static tree's hash once per run: a restart on other bytes keeps the first.
+
+    The memory lane starts WordCraft and OpenDoc once per pair. Replacing the
+    hash on each start published the earlier samples under the later tree's
+    hash, and the end-of-run check compared only the later one (CodeRabbit on
+    #287). The first hash stays. Every restart that hashes differently is
+    added to `tree_sha256_at_restart`, which later starts never clear, so a
+    tree changed and put back (A, B, A) is still on record, and the run's end
+    blocks publication on it.
+    """
+    prior = run.hosts.get(editor)
+    first = prior.get('tree_sha256') if isinstance(prior, dict) else None
+    seen = list(prior.get('tree_sha256_at_restart') or []) if isinstance(prior, dict) else []
+    if first and meta.get('tree_sha256') != first:
+        run.hosts[editor] = {**prior, 'tree_sha256_at_restart': seen + [meta.get('tree_sha256')]}
+        return
+    run.hosts[editor] = {**meta, 'tree_sha256_at_restart': seen} if seen else meta
+
+
 def start_host(editor, target, legacy_start):
     run = ACTIVE.get()
     policy = host_policy(editor)
@@ -210,15 +301,42 @@ def start_host(editor, target, legacy_start):
     if editor == 'wordcraft':
         repos = Path(target.get('repos_root') or (REPO / 'harness').resolve().parent / 'repos')
         root = repos / 'wordcraft/dist/web'
-        meta = {**policy, 'tree_sha256': tree_hash(root),
-                'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())}
+        meta = _validated(run, editor, policy, lambda: {
+            **policy, 'tree_sha256': tree_hash(root), 'tree_root': str(root.resolve()),
+            'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())})
         if run is not None:
-            run.hosts[editor] = meta
+            _keep_first_tree(run, editor, meta)
         target = {**target, 'env': {**target.get('env', {}), 'WC_DIST': str(root.resolve())}}
+        return legacy_start(editor, target)
+    if editor == 'opendoc':
+        # OpenDoc's editor is the vendor's static site, served as it ships by
+        # harness/ui/opendoc/host.mjs (its engine is the pinned build in
+        # webapp/pkg): there is no Vite host to build. Gated on this editor;
+        # every other static host still goes through build_host below.
+        repos = Path(target.get('repos_root') or (REPO / 'harness').resolve().parent / 'repos')
+        root = repos / 'opendoc/webapp'
+        meta = _validated(run, editor, policy, lambda: {
+            **policy, 'tree_sha256': tree_hash(root), 'tree_root': str(root.resolve()),
+            'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())})
+        if run is not None:
+            _keep_first_tree(run, editor, meta)
+        target = {**target, 'env': {**target.get('env', {}), 'OPENDOC_WEBAPP': str(root.resolve())}}
         return legacy_start(editor, target)
     if run is None:
         raise RuntimeError('production host requires a BrowserRun context')
     meta = run.hosts.get(editor, {})
+    if editor in STATIC_PAGES:
+        if not meta.get('static_root'):
+            meta = _validated(run, editor, policy, lambda: static_page_meta(editor, target, policy))
+            run.hosts[editor] = meta
+        fixture = target.get('fixture')
+        if fixture is None and run.fixtures:
+            fixture = next(iter(run.fixtures.values()))
+        server = StaticHost(meta['static_root'], port=urlsplit(target['url']).port,
+                            corpus_route=target.get('corpus_route', '/corpus.docx'), fixture=fixture,
+                            extra_roots=meta['extra_roots'])
+        target['_static_server'] = server
+        return server
     if not meta.get('build_directory'):
         try:
             meta = build_host(editor, target, run.out_root)

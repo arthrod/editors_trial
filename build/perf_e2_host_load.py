@@ -90,6 +90,8 @@ def job_rows(roots) -> list[dict]:
                 summary = json.loads((job / 'summary.json').read_text())
             except (OSError, ValueError):
                 summary = {}
+            if e2_cells.job_replaced_whole(job, summary if isinstance(summary, dict) else None):
+                continue  # measured again by a later run: its launches are not this campaign's (2026-11-23)
             count = above = unread = 0
             highest, bound = None, None
             for path in sorted(samples.glob('*.json')):

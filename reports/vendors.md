@@ -478,7 +478,7 @@ The package ships with its review marks and review cards hidden; a page that wan
 - It lost 7 of the test document's 169 pieces of text and failed 8 of 99 checks (main report, text kept 95.9%). When it saves, a text box becomes a picture of itself, so its words are no longer text, and anything in the body that is not a paragraph or a table, such as the link to an embedded document, is left out. It says nothing when it does (main report §12; Report A §3.13).
 - On hostile files it named no size limit, kept the weapon in five of the ten and ran past the time limit on one (Report D, grade 0.20).
 - It does not repair a damaged file: Word refuses what it saves from the broken test document (Report B §4).
-- Its speed is not measured by the trial: it has no entry that runs without a browser (Report E, "Not measured").
+- It slows sharply in the browser as the document grows: opening took 720 ms at 500 words and 4.8 s at 50,000, and at 250,000 words placing the caret took 4.5 s and pasting 10.2 s (Report E2, "The editors measured later"). Without a browser it is not timed: it has no entry that runs there (Report E, "Not measured").
 
 ## Univer
 
@@ -523,7 +523,7 @@ The application is published as a website; its npm package is only a frame mount
 
 ### Pros
 
-- It lays the 500-page sample out on 500 pages, as Word does. It loaded in 3.54 s and settled at 7.01 s (editors site, 3 of 3 runs).
+- It lays the 500-page sample out on 500 pages, as Word does. It loaded in 3.54 s and settled at 7.01 s (editors site, 3 of 3 runs). In the browser speed campaign it opened 500,000 words in 4.7 s, the quickest of the three editors measured later that opened that document (Report E2, "The editors measured later").
 - In the redline sample it shows insertions and deletions in the text, and a card per change and per comment with author, date and Accept and Reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
 - Its viewer package draws pages on a server: 204 ms for the rich sample and 1.57 s for the 500-page sample (viewers site, server render, 3 runs each, 2026-11-21). Without a browser its engine opens and saves the 5,000-word document in 3.3 ms and the 250,000-word one in 128 ms; at each of the five documents it is the lowest round trip in Report E (Report E, "The tools added in v0.11.0": a fresh process on the cloud machine, in a later pair of runs than the earlier editors').
@@ -559,6 +559,7 @@ The React package imports its core by 30 subpaths, each of which a page without 
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
 - Through an editor session it gave the test document back whole: every check passed, every part was kept, and Word opens the file (main report, editor lane 100.0%). The session checks which parts changed and writes the others back from the original bytes, changing at most their paragraph identifiers (Report A2 §3.7, read in its source for v0.11.2).
 - It also draws pages on a server, with its own layout and painter: 275 ms for the rich sample and 3.97 s for the 500-page sample, and the redline keeps its marks (viewers site, server render, 3 runs each, 2026-11-21).
+- In the browser, placing the caret and scrolling stay quick as the document grows: a click took 26 ms at 500 words and 33 ms at 250,000, and a scroll 25 ms or less at every size (Report E2, "The editors measured later").
 
 ### Cons
 
@@ -567,7 +568,7 @@ The React package imports its core by 30 subpaths, each of which a page without 
 - Through its document model the result is weaker: 12 of 99 checks failed, and Word refuses that file (main report, model lane 87.9%). What it has no type for is kept only when its prefix is foreign to Word's usual ones. An element written with one of Word's usual prefixes that it does not model is dropped. The markers of a moved passage come back without their author, which the schema requires, and Word refuses the model lane's file (Report A §3.15; Report B §3.9).
 - Its save returns a list of warnings, and for the test document the list was empty although checks failed (main report, harness log of the model lane). The places in its code that drop such content raise no warning (Report A §3.15).
 - On hostile files it named no size limit and kept the weapon in three of the ten; in the editor lane the process aborted on one (Report D, grade 0.36).
-- Opening and saving without a browser is in the middle of the field: its document model takes 135 ms for the 5,000-word document and 1,278 ms for 250,000 words, and its first call also starts its WebAssembly, which the package gives no way to do beforehand (Report E, "The tools added in v0.11.0": a fresh process on the cloud machine, in a later pair of runs than the earlier editors').
+- Opening and saving without a browser is in the middle of the field: its document model takes 135 ms for the 5,000-word document and 1,278 ms for 250,000 words, and its first call also starts its WebAssembly, which the package gives no way to do beforehand (Report E, "The tools added in v0.11.0": a fresh process on the cloud machine, in a later pair of runs than the earlier editors'). In the browser it is slower to type and to open a long document: one character took 139 ms at 500 words and 483 ms at 250,000, timed by pixels, and opening 500,000 words took 15.0 s (Report E2, "The editors measured later").
 
 ## OnlyOffice (CryptPad build)
 
@@ -590,14 +591,14 @@ The editor is distributed as one archive of 608 MB. One header icon is missing f
 - It lays the 500-page sample out on 500 pages, as Word does (editors site, 2 of 3 runs; the third was cut by the site, not the editor).
 - In the redline sample it shows deletions struck and insertions underlined in each author's colour, with its own review and comment panels (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
-- It runs wholly in the browser, with no document server to operate (editors site README, "The editors").
+- It runs wholly in the browser, with no document server to operate (editors site README, "The editors"). There it stays quick as the document grows: typing one character took 43 ms at 500 words and 52 ms at 250,000, timed by pixels, and pasting about 60 ms at every size (Report E2, "The editors measured later").
 - On eight of the ten hostile files it wrote a file without the weapon in it (Report D, grade 0.64).
 - Without a browser its converter opens and saves the prose documents quickly: 62 ms for 5,000 words and 537 ms for 250,000. It is the test document, `complex.docx`, that it does not return from (Report E, "The tools added in v0.11.0": a fresh process on the cloud machine, in a later pair of runs than the earlier editors').
 
 ### Cons
 
 - The license is AGPL-3.0, which the editors site's README calls "a real constraint for a closed product" (editors site README, "Licenses").
-- It is heavy on a short file: 3.06 s and 50 MB of JavaScript memory to open the 3-page rich sample, and an 18 MB download (editors site, 3 of 3 runs; viewers site, redline sample).
+- It is heavy on a short file: 3.06 s and 50 MB of JavaScript memory to open the 3-page rich sample, and an 18 MB download (editors site, 3 of 3 runs; viewers site, redline sample). It took 1.9 s to open 500 words (Report E2, "The editors measured later").
 - It says a long document is ready before it has finished counting pages: on the 500-page sample the count went on rising to 500 after "ready" (editors site README, "Figures to distrust", watched by hand on 2026-11-20).
 - It cannot draw pages on a server in this build: the converter is compiled without its renderer (viewers site README, "No server route, and why").
 - It did not open the trial's test document. Its converter did not return while the embedded document (`w:altChunk`) was in the file; with that removed the editor reported an error at the SmartArt; with both removed it showed 6 pages (Report C §2.18; main report).
@@ -610,7 +611,7 @@ Nutrient Web SDK is a commercial, closed-source document SDK. It is a viewer her
 
 **No affiliation.** This benchmark is independent. It is not affiliated with, sponsored by, or endorsed by Nutrient, or by any other vendor it measures. Nutrient Web SDK was run from Nutrient's own CDN in its trial mode; the watermark that mode draws is left in what is shown, not removed. Nutrient and PSPDFKit are trademarks of their owner.
 
-Nutrient is in the trial's rendering report (Report C) since v0.11.0, and in no other: it is a viewer, so there is no saved file to round-trip.
+Nutrient is in the trial's rendering report (Report C) since v0.11.0, and in the browser speed report (Report E2) for opening, scrolling and memory. It is in no other: it is a viewer, so there is no saved file to round-trip, and nothing to type into.
 
 ### What the benchmark runs
 
@@ -631,5 +632,5 @@ The SDK's error messages and its CDN host still carry the former name, PSPDFKit.
 - It is view-only: no editing, and no export of the document as `.docx` (editors site README, "Proprietary viewers").
 - It shows a redline as the accepted text, with no marks for insertions, deletions or comments (editors site, redline sample).
 - It substitutes fonts: in the rich sample inline code is not monospace and the title wraps (editors site README, "Proprietary viewers").
-- It is a very large download and slow to start: 105 MB loaded, of which one file is 68 MB, and 15 to 28 s on desktop Chrome (editors site README, measured 2026-11-09); 20.8 s for the 500-page sample (editors site, 2 of 3 runs).
+- It is a very large download and slow to start: 105 MB loaded, of which one file is 68 MB, and 15 to 28 s on desktop Chrome (editors site README, measured 2026-11-09); 20.8 s for the 500-page sample (editors site, 2 of 3 runs). It was the slowest of the editors measured later to open a document: 4.4 s at 500 words and 18.7 s at 250,000, with no figure at 500,000. That includes fetching its SDK from Nutrient's CDN, while the editors are served from the measuring machine (Report E2, "The editors measured later").
 - It lays the test document out on 7 pages where Word has 6, and draws the chart without its axis and category labels and the Hebrew line without its Hebrew letters (Report C §2.19).

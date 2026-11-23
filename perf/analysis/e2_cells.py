@@ -1046,6 +1046,33 @@ def job_superseded(job: Path, editor_id: str) -> bool:
     )
 
 
+_CELL_DIR = re.compile(r'^\d{4}-(.+)$')
+
+
+def job_replaced_whole(job: Path, summary: dict | None = None) -> bool:
+    """True when every editor of this job was measured again by a later run.
+
+    Such a job contributed nothing. Its editors are the ones its summary's
+    ``order`` scheduled; a job without a readable order falls back to its cell
+    directories (``NNNN-<editor>``), and a directory of another shape keeps the
+    job (Codex review, 2026-11-23).
+    """
+    if not _SUPERSEDED_CELLS:
+        return False
+    if summary is None:
+        summary = _load_summary(Path(job))
+    order = (summary or {}).get('order') if isinstance((summary or {}).get('order'), list) else []
+    editors = {pair[1] for pair in order
+               if isinstance(pair, (list, tuple)) and len(pair) == 2 and isinstance(pair[1], str)}
+    if not editors:
+        for directory in _listing(Path(job) / 'cells', '*'):
+            match = _CELL_DIR.match(directory.name)
+            if not match:
+                return False
+            editors.add(match.group(1))
+    return bool(editors) and all(job_superseded(job, editor) for editor in editors)
+
+
 def _iter_attempt_rows(run_directory: Path):
     yield from _attempt_rows_of(run_directory, _job_roots(run_directory))
 

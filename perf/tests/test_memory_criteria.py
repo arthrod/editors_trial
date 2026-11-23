@@ -22,6 +22,7 @@ from perf.runner.benchmark_ci_contract import EDITORS, _RUNNERS
 from perf.runner.benchmark_memory import (
     BROWSER_TARGETS,
     FEATURE_SWITCH_PROBE,
+    PROFILE_SWITCHES_FOUND,
     PROCESS_TARGETS,
     PROFILE_FEATURES,
     _c22_row,
@@ -326,10 +327,16 @@ class AttemptHonesty(unittest.TestCase):
 
 class FeatureProfileHonesty(unittest.TestCase):
     def test_every_editor_has_an_inspection_record(self):
-        self.assertEqual(set(FEATURE_SWITCH_PROBE), set(EDITORS))
+        # Every CI-contract editor has a record; a record beyond that list is
+        # an editor with a browser target only (Report E2's later editors).
+        self.assertLessEqual(set(EDITORS), set(FEATURE_SWITCH_PROBE))
+        for editor_id in set(FEATURE_SWITCH_PROBE) - set(EDITORS):
+            self.assertIn(editor_id, BROWSER_TARGETS)
 
     def test_reason_names_the_host_and_the_missing_switch(self):
         for editor_id in FEATURE_SWITCH_PROBE:
+            if editor_id in PROFILE_SWITCHES_FOUND:
+                continue  # it has a switch; its C22 is not_run (test_e2_opendoc_lanes)
             reason = _feature_switch_reason(editor_id, "ci_broad")
             self.assertIn(editor_id, reason)
             self.assertIn("no P0-P3 feature profile", reason)
@@ -339,7 +346,12 @@ class FeatureProfileHonesty(unittest.TestCase):
     def test_no_host_actually_exposes_a_profile_switch(self):
         # If a host ever gains one, this test fails and C22 must be implemented
         # for it instead of being recorded not_applicable.
+        # A host recorded in PROFILE_SWITCHES_FOUND has one, by inspection; its
+        # C22 is recorded not_run (applicable, not driven), never not_applicable.
         for editor_id, (_host, _inspected, params) in FEATURE_SWITCH_PROBE.items():
+            if editor_id in PROFILE_SWITCHES_FOUND:
+                self.assertTrue(set(PROFILE_SWITCHES_FOUND[editor_id]) <= set(PROFILE_FEATURES), editor_id)
+                continue
             self.assertFalse(
                 set(PROFILE_FEATURES) & set(params),
                 "%s exposes a profile switch; C22 must be measured there" % (editor_id,),
@@ -406,7 +418,13 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
         }
 
     def _run(self, pair):
+        return self._run_pairs([pair])
+
+    def _run_pairs(self, pairs):
         from unittest import mock
+
+        for index, pair in enumerate(pairs):
+            pair["index"] = index
 
         import perf.runner.benchmark_memory as module
 
@@ -414,8 +432,8 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
             "Args",
             (),
             {
-                "execution_profile": "ci_contract",
-                "pairs": 1,
+                "execution_profile": "ci_contract" if len(pairs) == 1 else "ci_broad",
+                "pairs": len(pairs),
                 "burst": 12,
                 "quiescence_ms": 2000,
                 "retain_seconds": (1.0, 5.0),
@@ -428,7 +446,7 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
         attempt_dir = Path(self._tmp.name) / "attempts"
         with mock.patch.object(module, "_start_server", return_value=type("P", (), {"pid": 101})()):
             with mock.patch.object(module, "_stop_server", return_value=None):
-                with mock.patch.object(module, "_run_browser_pair", return_value=pair):
+                with mock.patch.object(module, "_run_browser_pair", side_effect=list(pairs)):
                     with mock.patch.object(module, "_port_is_free", return_value=True):
                         rows = module._browser_rows(
                             editor_id="plate",
@@ -490,6 +508,45 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
         self.assertIn("accepted no text", by_phase["after_edit_burst"]["failure_reason"])
         self.assertEqual(by_phase["ready"]["outcome"], "measured")
 
+    def test_a_burst_whose_caret_block_moved_fails_with_both_blocks(self):
+        pair = self._pair(edit_effective=False)
+        pair["edited"]["probe"]["edit_oracle"] = {
+            "status": "edit_not_applied", "reason": "poll_timeout",
+            "scope_before": "Article 1. Incidental Taxes", "scope_after": "Whole, either relevant unless",
+        }
+        rows, attempt_dir = self._run(pair)
+        row = {r["measurement_phase"]: r for r in rows if r["criterion_id"] == "C17"}["after_edit_burst"]
+        self.assertEqual(row["outcome"], "failed")
+        self.assertTrue(row["failure_reason"].startswith("caret_block_moved:"))
+        trial = json.loads((attempt_dir / Path(row["attempt_file"]).name).read_text(encoding="utf-8"))
+        self.assertEqual(trial["evidence"]["caret_block_moved"][0]["scope_before"], "Article 1. Incidental Taxes")
+
+    def test_a_burst_on_the_same_block_that_took_no_text_stays_not_applicable(self):
+        pair = self._pair(edit_effective=False)
+        pair["edited"]["probe"]["edit_oracle"] = {"scope_before": "Same block", "scope_after": "Same block"}
+        rows, _attempt_dir = self._run(pair)
+        row = {r["measurement_phase"]: r for r in rows if r["criterion_id"] == "C17"}["after_edit_burst"]
+        self.assertEqual(row["outcome"], "not_applicable")
+        self.assertIn("accepted no text", row["failure_reason"])
+
+    def test_a_partial_burst_into_the_same_block_is_not_a_move(self):
+        pair = self._pair(edit_effective=False)
+        pair["edited"]["probe"]["edit_oracle"] = {
+            "scope_before": "Article 1. Incidental Taxes", "scope_after": "Article 1. Incidabcdeental Taxes",
+        }
+        rows, _attempt_dir = self._run(pair)
+        row = {r["measurement_phase"]: r for r in rows if r["criterion_id"] == "C17"}["after_edit_burst"]
+        self.assertEqual(row["outcome"], "not_applicable")
+
+    def test_a_pair_whose_edit_succeeded_is_never_read_as_a_move(self):
+        good = self._pair(edit_effective=True)
+        good["edited"]["probe"]["edit_oracle"] = {"scope_before": "Same", "scope_after": "Entirely other text"}
+        bad = self._pair(edit_effective=False)
+        bad["edited"]["probe"]["edit_oracle"] = {"scope_before": "Same block", "scope_after": "Same block"}
+        rows, _attempt_dir = self._run_pairs([good, bad])
+        row = {r["measurement_phase"]: r for r in rows if r["criterion_id"] == "C17"}["after_edit_burst"]
+        self.assertEqual(row["outcome"], "not_applicable")
+
     def test_failed_reopen_keeps_the_retention_evidence_and_fails_c19(self):
         rows, attempt_dir = self._run(self._pair(reopen=False))
         c19 = [row for row in rows if row["criterion_id"] == "C19"][0]
@@ -534,7 +591,11 @@ class LaneCoverage(unittest.TestCase):
 
     def test_support_table_covers_every_editor(self):
         rows = {row["editor_id"]: row for row in support_table()}
-        self.assertEqual(set(rows), set(EDITORS))
+        # CI-contract editors plus browser-only targets (Report E2's later editors).
+        self.assertLessEqual(set(EDITORS), set(rows))
+        for editor_id in set(rows) - set(EDITORS):
+            self.assertIn(editor_id, BROWSER_TARGETS)
+            self.assertTrue(rows[editor_id]["browser_host"], editor_id)
         for editor_id, row in rows.items():
             self.assertTrue(row["browser_host"] or row["headless_process_lane"], editor_id)
 

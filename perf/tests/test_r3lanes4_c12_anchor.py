@@ -144,8 +144,12 @@ class DocxodusC12IsProbed(unittest.TestCase):
     def test_wordcraft_skip_stays(self):
         text = BENCHMARK_DOCUMENT.read_text(encoding="utf-8")
         c12_block = text.split('criterion_id == "C12"')[1].split('criterion_id == "C14"')[0]
-        self.assertIn('editor_id == "wordcraft"', c12_block)
+        # The skip goes through c12_refusal (Nutrient joined it); its reasons are
+        # pinned by behaviour in test_e2_c12_refusal.py.
+        self.assertIn("c12_refusal(editor_id, cfg)", c12_block)
         self.assertIn("not_applicable", c12_block)
+        refusal = text.split("def c12_refusal(")[1].split("\ndef ")[0]
+        self.assertIn('editor_id == "wordcraft"', refusal)
 
     def test_gather_reflow_before_receives_the_picker(self):
         text = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
@@ -199,17 +203,25 @@ class YProxyRemoved(NodeContract):
         self.assertIn("model_paragraphs", text)
         self.assertIn("dom_blocks", text)
 
-    def test_the_no_geometry_set_is_canvas_and_docen(self):
+    def test_the_no_geometry_set_is_canvas_docen_and_opendoc(self):
+        # E2: OpenDoc paints its pages into canvases too (harness/ui/opendoc);
+        # it joins the set. Every DOM editor stays outside it.
         out = self.node(
             """
 assert.equal(typeof mod.C12_NO_PARAGRAPH_GEOMETRY, 'object');
 assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('canvas'), true);
 assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('docen'), true);
+assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('opendoc'), true);
 assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('plate'), false);
 console.log(JSON.stringify([...mod.C12_NO_PARAGRAPH_GEOMETRY]));
 """
         )
-        self.assertEqual(sorted(out), ["canvas", "docen"])
+        # Report E2 adds OnlyOffice, which also draws whole pages on one canvas
+        # (2026-11-22), and BetterOffice, which paints each page on a canvas and
+        # whose only paragraph elements are its accessibility mirror's 0x0 boxes
+        # (2026-11-22); canvas and docen keep their ruling, and OpenDoc, whose pages are canvases
+        # (harness/ui/opendoc); nobody else joins.
+        self.assertEqual(sorted(out), ["betteroffice", "canvas", "docen", "onlyoffice", "opendoc"])
 
 
 if __name__ == "__main__":

@@ -4,9 +4,9 @@
  * before the wait's poll interval, so a shell that gains blocks later is
  * still observed while it has none.
  */
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const repo = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const { loadPlaywright } = await import(pathToFileURL(`${repo}/perf/runner/witness.mjs`).href);
 const { usableExpression } = await import(pathToFileURL(`${repo}/perf/runner/edit_surface.mjs`).href);
 const { waitForUsableSurface } = await import(pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href);

@@ -14,6 +14,7 @@ import readline from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { prepareEditSurface } from './edit_surface.mjs';
+import { editorPage } from './editor_frame.mjs';
 
 import {
   applyResourceBurst,
@@ -130,10 +131,12 @@ async function onLaunch(params) {
     }
     await route.continue();
   });
-  page = context.pages()[0] || await context.newPage();
+  const browserPage = context.pages()[0] || await context.newPage();
+  // OnlyOffice's document calls go to its editor frame; every other editor's page is itself.
+  page = editorPage(browserPage, opts.editorId || '');
   traceBrowser = typeof context.browser === 'function' ? context.browser() : null;
-  traceHandle = traceBrowser ? await startChromeTrace(traceBrowser, page, 'C18') : null;
-  cdp = await context.newCDPSession(page);
+  traceHandle = traceBrowser ? await startChromeTrace(traceBrowser, browserPage, 'C18') : null;
+  cdp = await context.newCDPSession(browserPage);
   cdp.on('Network.responseReceived', (event) => {
     noteCdpEvent('Network.responseReceived', event, 'page');
   });

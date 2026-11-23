@@ -30,7 +30,8 @@ _RELAXED_BOUND_LINES = (
     f"the page's load event for the canvas editors Docen and WordCraft, the painted document) "
     f"up to {C14_LOAD_TIMEOUT_MS // 1000} s.",
     f"Sparse-witness settle onset floor: {ONSET_BOUND_FLOOR_MS} ms.",
-    "CPU throttle tolerance: max(1 ms, 1% of the sample span).",
+    f"CPU throttle tolerance: max({THROTTLE_TOLERANCE_MIN_USEC / 1000:g} ms, "
+    f"{THROTTLE_TOLERANCE_SPAN_FRACTION * 100:g}% of the sample span).",
     f"Witness anchor lag: max({LAG_BOUND_INTERVALS} frame intervals, {LAG_BOUND_MIN_MS:g} ms).",
     f"Typing/document content length tolerance: {CONTENT_LENGTH_REL_TOL * 100:g}% for the prose "
     "documents; the complex document (complex-corpus) is accepted at 75% to 125% of the expected length.",

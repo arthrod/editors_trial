@@ -13,7 +13,11 @@
 //   - the document is the trial's fixture, served by the driver at /sample.docx
 //     (or ?doc=<url>);
 //   - window.__host exposes a promise that settles when the editor has laid
-//     the document out to its last page, and api() for build/capture_ui.sh.
+//     the document out to its last page, and api() for build/capture_ui.sh;
+//   - window.__host.ready turns true when OnlyOffice reports the document ready
+//     for editing (its documented onDocumentReady event), and
+//     window.__host.error holds the reason the document did not open: flags
+//     the browser speed lanes (Report E2) can poll synchronously.
 const BASE = `${location.origin}/vendor/`;
 const params = new URLSearchParams(location.search);
 
@@ -127,9 +131,72 @@ async function open() {
       },
     });
   });
+  // Owner's decision (2026-11-22): sentence capitalisation off on the measured
+  // page, disclosed in Report E2. OnlyOffice's default autocorrect turns the typed
+  // "PETITIONER v." into "V.", so the typing lane's text check failed although
+  // every key arrived. A user can switch it off the same way (File > Advanced
+  // settings > AutoCorrect). Nothing else about the editor changes.
+  // Owner's decision (2026-11-22, later campaign): hyphens-with-dash off as well.
+  // Its default AutoFormat turns the typed "Toledo -Flores" into "Toledo –Flores",
+  // which Word leaves alone, so every typing session failed the text check. Same
+  // place for a user (AutoCorrect > AutoFormat As You Type), disclosed beside the first.
+  const editor = api();
+  editor.asc_SetAutoCorrectFirstLetterOfSentences(false);
+  editor.asc_SetAutoCorrectHyphensWithDash(false);
+  window.__host.autocorrect = { firstLetterOfSentences: false, hyphensWithDash: false };
+  window.__host.ready = true;
   return { pages: await paginated(), media: Object.keys(media) };
 }
 
-window.__host = { api, errors: [], loaded: null, convertMs: null };
+/**
+ * A paragraph's text from OnlyOffice's model, by OnlyOffice's own GetText.
+ * GetText writes each character with String.fromCharCode(codePoint), which cuts
+ * a character above U+FFFF to its low 16 bits (sdkjs ParaRun.Get_Text, 9.3.2:
+ * U+2000B reads as U+000B, U+1F468 as U+F468); the model keeps the full code
+ * point (GetCodePoint). For the length of this synchronous call that one
+ * function, in the editor's frame, writes such a code point whole; everything
+ * else (separators, numbering, tabs) is GetText's own.
+ */
+function paragraphText(w, paragraph) {
+  const S = w.String;
+  const narrow = S.fromCharCode;
+  S.fromCharCode = function fromCharCode(...codes) {
+    return codes.length === 1 && codes[0] > 0xffff ? S.fromCodePoint(codes[0]) : narrow.apply(S, codes);
+  };
+  try {
+    return String(paragraph.GetText()).replace(/\r?\n$/, '');
+  } finally {
+    S.fromCharCode = narrow;
+  }
+}
+
+const logicDocument = () => {
+  const w = document.querySelector('#root iframe')?.contentWindow;
+  const logic = w?.editor?.WordControl?.m_oLogicDocument;
+  return logic ? { w, logic } : null;
+};
+
+/** The main document's text, one line per paragraph (Report E2's content checks). */
+function text() {
+  const found = logicDocument();
+  if (!found) return null;
+  return found.logic.GetAllParagraphs({ OnlyMainDocument: true, All: true })
+    .map((p) => paragraphText(found.w, p)).join('\n');
+}
+
+/** The text of the paragraph holding the caret. */
+function caretParagraphText() {
+  const found = logicDocument();
+  const paragraph = found && found.logic.GetCurrentParagraph();
+  return paragraph ? paragraphText(found.w, paragraph) : null;
+}
+
+window.__host = { api, errors: [], loaded: null, convertMs: null, ready: false, error: null, text, caretParagraphText };
 window.__host.loaded = open();
-window.__host.loaded.catch(() => {});
+// An error before the document is ready is the document not opening; a later
+// one (pagination still running after 180 s) is kept apart from it.
+window.__host.loaded.catch((e) => {
+  const reason = String((e && e.message) || e);
+  if (window.__host.ready) window.__host.paginateError = reason;
+  else window.__host.error = reason;
+});

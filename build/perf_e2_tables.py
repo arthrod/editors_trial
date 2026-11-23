@@ -151,17 +151,51 @@ def check_comparable(primary: Run, repro: Run) -> None:
 _PIN_SENTINEL = object()
 
 
-def _pins(root: Path, *, ran_only: bool = False) -> dict:
+# The ``superseded_cells`` entries of the current ``facts_from_roots`` call, as
+# given (``e2_cells`` keeps only editor, jobs and kept_runs): their ``note``
+# says why a re-run's own pin differs.
+_RERUN_ENTRIES: tuple = ()
+
+
+def _rerun_entry(path: Path, editor: str):
+    """The ``superseded_cells`` entry whose kept run measured this attempt for this editor, or None.
+
+    A job directory is ``<run id>-<index>`` and holds ``cells/<cell>/attempts/<file>``.
+    """
+    job = Path(path).parents[3]
+    run_id, _, tail = job.name.rpartition("-")
+    if not tail.isdigit():
+        return None
+    for entry in _RERUN_ENTRIES:
+        if entry.get("editor") == editor and run_id in (entry.get("kept_runs") or ()) \
+                and int(tail) in {int(i) for i in entry.get("jobs") or ()}:
+            return entry
+    return None
+
+
+def _pins(root: Path, *, ran_only: bool = False, reruns: str = "include") -> dict:
     """Built-editor identity per editor (#149).
 
     ``host_provenance.tree_sha256`` — the built editor — is the pin whenever
     present, for every lane; ``environment.editor_version`` counts only when
     it is a real pin, not the editor slug the runner stamps there. A trial
     with neither records "not recorded".
+
+    ``reruns``: "include" every attempt; "exclude" the attempts a
+    ``superseded_cells`` entry keeps for that editor (a re-run may carry its
+    own pin, owner's decision 2026-11-23, disclosed in the host note).
     """
     pins = {}
-    for row in e2_cells._iter_trials(root):
-        if ran_only and row.get("outcome") == "not_run":
+    if reruns == "exclude":
+        rows = ((path, row) for _, path, row in e2_cells._iter_attempt_rows(root)
+                if row.get("criterion_id") and row.get("editor_id"))
+    else:
+        rows = ((None, row) for row in e2_cells._iter_trials(root))
+    for path, row in rows:
+        # A not-applicable attempt launched no editor, so it has no build to report.
+        if ran_only and row.get("outcome") in ("not_run", "not_applicable"):
+            continue
+        if reruns == "exclude" and _rerun_entry(path, row["editor_id"]) is not None:
             continue
         pin = e2_cells.editor_pin(row)
         pins.setdefault(row["editor_id"], set()).add(pin if pin else _PIN_SENTINEL)
@@ -170,9 +204,13 @@ def _pins(root: Path, *, ran_only: bool = False) -> dict:
 
 def _campaign_pins(roots) -> dict:
     """Pins from every run folder, not the first one only: a campaign spreads editors over many folders."""
+    return _campaign_pins_of(roots)
+
+
+def _campaign_pins_of(roots, *, reruns: str = "include") -> dict:
     merged: dict = {}
     for root in roots:
-        for editor, values in _pins(root, ran_only=True).items():
+        for editor, values in _pins(Path(root), ran_only=True, reruns=reruns).items():
             merged.setdefault(editor, set()).update(values)
     return {editor: sorted(values) for editor, values in merged.items()}
 
@@ -195,6 +233,8 @@ def _require_same_pins(primary: Path, repro: Path) -> None:
     refuses per launch (``pin_not_recorded`` in ``e2_cells``) rather than
     vetoing every other editor's cells.
     """
+    # The classic primary/reproduction pair never carries re-measured cells, so
+    # nothing is excused here; a campaign compares its pins in _require_campaign_pins.
     a, b = _pins(primary), _pins(repro)
     for editor in sorted(set(a) | set(b)):
         recorded_a = set(a.get(editor, ())) - {"not recorded"}
@@ -300,6 +340,20 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
         facts[key + '.reason'] = reason
         return reason
     p_cell, r_cell = groups[0], groups[1]
+    from build.perf_e2_summary import VIEWER_NOT_APPLICABLE, VIEWER_UNSCHEDULED
+    if (criterion in VIEWER_UNSCHEDULED.get(editor, ())
+            and all(cell.get('scheduled') == 0 and not cell.get('blocked') and not cell.get('refusals')
+                    and not cell.get('stats') for cell in groups)):
+        # The runner leaves this criterion out of a viewer's target, so no
+        # launch was scheduled, by design and with its reason (Nutrient's
+        # C05/C06, later campaign, 2026-11-23); it printed "scheduled count not
+        # recorded". Only those criteria: a zero count elsewhere can be a
+        # summary without its order, and keeps that wording (Codex review).
+        reason = 'does not apply: %s (no launch was scheduled for it)' % VIEWER_NOT_APPLICABLE[editor]
+        facts[key + '.reason'] = reason
+        facts.setdefault('_not_reproduced', []).append(
+            (DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—'))
+        return reason
     facts[key + '.primary'] = e2_cells.public_cell_dict(p_cell)
     facts[key + '.reproduction'] = e2_cells.public_cell_dict(r_cell)
     for label, cell in zip(('first', 'second'), groups):
@@ -524,8 +578,68 @@ def check_roots_comparable(roots, *, strict_rendering: bool = True) -> None:
             raise ValueError("the reproduction used another host class")
         if summary.get("execution_profile") != first.get("execution_profile"):
             raise ValueError("the reproduction used another execution profile")
-    for index, root in enumerate(roots[1:], 1):
-        _require_same_pins(Path(roots[0]), Path(root))
+    _require_campaign_pins(roots)
+    _rerun_pins(roots)
+
+
+def _require_campaign_pins(roots) -> None:
+    """Every run folder must have measured the same built editor (#149), the
+    attempts a ``superseded_cells`` entry keeps aside (checked in _rerun_pins).
+
+    The recorded pins of every folder are pooled per editor, not compared with
+    the first folder's: a first folder with no row of an editor must not let
+    two other folders disagree.
+    """
+    for editor, values in sorted(_campaign_pins_of(roots, reruns="exclude").items()):
+        recorded = sorted(set(values) - {"not recorded"})
+        if len(recorded) > 1:
+            raise ValueError("the reproduction attested other editor pins (%s: %s; built-editor tree)"
+                             % (editor, " vs ".join(recorded)))
+
+
+def _rerun_pins(roots) -> list:
+    """Each ``superseded_cells`` entry's kept attempts and the one pin they carry.
+
+    Returns ``(entry, pin, campaign pins)`` for every entry whose kept attempts
+    ran on another build than the editor's other attempts; refuses kept
+    attempts of one entry on more than one recorded build, and a differing pin
+    the entry gives no ``note`` for.
+    """
+    kept: dict = {}
+    for root in roots:
+        for _, path, row in e2_cells._iter_attempt_rows(Path(root)):
+            editor = row.get("editor_id")
+            if not (row.get("criterion_id") and editor) or row.get("outcome") in ("not_run", "not_applicable"):
+                continue
+            entry = _rerun_entry(path, editor)
+            if entry is not None:
+                pin = e2_cells.editor_pin(row)
+                if pin:
+                    kept.setdefault(id(entry), (entry, set()))[1].add(pin)
+    others = _campaign_pins_of(roots, reruns="exclude")
+    found = []
+    by_editor: dict = {}
+    for entry, pins in kept.values():
+        editor = entry["editor"]
+        if len(pins) > 1:
+            raise ValueError("%s's re-measured cells attested other editor pins (%s; built-editor tree)"
+                             % (editor, ", ".join(sorted(pins))))
+        by_editor.setdefault(editor, set()).update(pins)
+    for editor, pins in sorted(by_editor.items()):
+        # With no other row of the editor left, its re-runs are its campaign: one build.
+        if not set(others.get(editor, ())) - {"not recorded"} and len(pins) > 1:
+            raise ValueError("the reproduction attested other editor pins (%s: %s; built-editor tree, "
+                             "re-measured cells only)" % (editor, " vs ".join(sorted(pins))))
+    for entry, pins in kept.values():
+        editor = entry["editor"]
+        (pin,) = pins
+        campaign = sorted(set(others.get(editor, ())) - {"not recorded"})
+        if campaign and campaign != [pin]:
+            if not (entry.get("note") or "").strip():
+                raise ValueError("%s's re-measured cells ran on another build (%s vs %s) and their "
+                                 "superseded_cells entry gives no note saying why" % (editor, pin, ", ".join(campaign)))
+            found.append((entry, pin, campaign))
+    return found
 
 
 def _host_note(summary: dict) -> str:
@@ -623,7 +737,7 @@ def _space_note(spaces, editors) -> str:
         if (base := re.sub(r"^e2-", "", re.sub(r"-\d+$", "", space))) in known and base not in editors
     )
     if confused:
-        note += " Spaces %s are machines named for editors this report does not measure." % ", ".join(confused)
+        note += " Spaces %s are machines named for editors this campaign does not measure." % ", ".join(confused)
     return note
 
 
@@ -675,8 +789,11 @@ def _seed_host_note(seed, rows) -> str:
 
 
 def _host_note_campaign(roots, editors) -> str:
-    """Per seed, the distinct machines all of its campaign jobs ran on (#178)."""
-    summaries = _all_job_summaries(roots)
+    """Per seed, the distinct machines all of its campaign jobs ran on (#178).
+
+    A job replaced whole by a later run is left out, as in the inventory.
+    """
+    summaries = _contributing_job_summaries(roots)
     if not summaries:
         return "not yet measured"
     spaces = sorted({row.get("space", "not recorded") for row in summaries})
@@ -693,8 +810,19 @@ def _host_note_campaign(roots, editors) -> str:
     trial_pins = _campaign_pins(pin_roots)
     lines = [lead]
     lines.extend(_seed_host_note(seed, by_seed[seed]) for seed in sorted(by_seed, key=lambda value: (value is None, value)))
-    lines.append(_pins_text(trial_pins))
+    lines.append(_pins_text(trial_pins) + _rerun_pins_text(_rerun_pins(pin_roots)))
     return "\n\n".join(lines)
+
+
+def _rerun_pins_text(found) -> str:
+    """The re-measured cells that ran on another build, with the entry's reason (owner's decision 2026-11-23)."""
+    parts = []
+    for entry, pin, campaign in found:
+        jobs = sorted(int(i) for i in entry["jobs"])
+        parts.append(" %s's re-measured cells (job%s %s) ran on built-editor tree %s; its cells not re-measured, on %s: %s." % (
+            DISPLAY.get(entry["editor"], entry["editor"]), "s" if len(jobs) != 1 else "",
+            ", ".join(str(j) for j in jobs), pin, ", ".join(campaign), entry["note"].strip().rstrip(".")))
+    return "".join(parts)
 
 
 def _steal(summary: dict) -> str:
@@ -799,10 +927,21 @@ def _job_days(summary: dict) -> tuple[str | None, str | None]:
     return start, end
 
 
+def _contributing_job_summaries(roots) -> list[dict]:
+    rows = []
+    for root in map(Path, roots):
+        for job in e2_cells._job_roots(root):
+            summary = e2_cells._load_summary(job)
+            if summary and not e2_cells.job_replaced_whole(job, summary):
+                rows.append({**summary, "space": _space_name(root)})
+    return rows
+
+
 def _campaign_view(roots) -> dict:
     """A campaign's inventory, read from its job summaries: jobs per seed and
-    the earliest job start / latest job end day."""
-    summaries = _all_job_summaries(roots)
+    the earliest job start / latest job end day. A job replaced whole by a
+    later run is not counted."""
+    summaries = _contributing_job_summaries(roots)
     by_seed: dict = {}
     starts, ends = [], []
     for row in summaries:
@@ -1217,11 +1356,16 @@ def legacy_snapshot_facts(facts: dict) -> dict:
     """A pre-E2 snapshot has no browser measurements, never implicit numbers.
 
     Partial E2 snapshots remain strict: missing fields indicate corrupt or
-    stale measurement evidence and must still fail rendering.
+    stale measurement evidence and must still fail rendering. The same holds
+    for the later campaign's ``perf.e2.later.*`` facts.
     """
-    if any(key.startswith('perf.e2.') for key in facts):
+    if any(key.startswith('perf.e2.later.') for key in facts):
         return facts
-    return {**unset_facts(), **facts}
+    if any(key.startswith('perf.e2.') for key in facts):
+        # A snapshot from before the later campaign never had its section:
+        # it reads "not yet measured", as a pre-E2 snapshot's report does.
+        return {**later_unset_facts(), **facts}
+    return {**unset_facts(), **later_unset_facts(), **facts}
 
 
 def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
@@ -1249,8 +1393,14 @@ def facts_from_roots(roots, superseded_cells=None) -> dict:
     # file added before the next call is always seen (#176).
     # ``superseded_cells``: an editor's cells of some jobs, measured again by
     # later runs under the same job indices (#185); the old rows are not read.
-    with e2_cells._listing_scope(), e2_cells.superseded_cells(superseded_cells):
-        return _facts_from_roots(roots)
+    global _RERUN_ENTRIES
+    previous = _RERUN_ENTRIES
+    _RERUN_ENTRIES = tuple(superseded_cells or ())
+    try:
+        with e2_cells._listing_scope(), e2_cells.superseded_cells(superseded_cells):
+            return _facts_from_roots(roots)
+    finally:
+        _RERUN_ENTRIES = previous
 
 
 def _facts_from_roots(roots) -> dict:
@@ -1403,6 +1553,298 @@ def _facts_from_roots(roots) -> dict:
     return facts
 
 
+# Report E2's later campaign: the editors added after the published campaign,
+# measured by a campaign of their own (perf/container/policy.LATER_CAMPAIGN_EDITORS)
+# on the same machine type, lanes, layout and seeds. Its facts are built exactly as
+# the published campaign's and renamed under ``perf.e2.later.*``, so no figure of
+# one campaign is read as the other's (Report E's ``perf.e.v011.*`` does the same).
+LATER = "perf.e2.later."
+LATER_SECTION = '"The editors measured later"'
+# The published campaign's documents, read from the run-level summary.json of
+# its 66 roots in the bucket: the record the later campaign is checked against
+# when those roots are not on this machine (the carry). A name listed under
+# "generated_per_sample" is a new document per sample and has no fixed hash.
+PUBLISHED_DOCUMENTS = ROOT / "build" / "e2_published_documents.json"
+_HOST_BLOCK = re.compile(r"^(?P<cpu_model>.*); CPU quota (?P<cpu_quota>[^;]*); logical CPUs (?P<cpu_cores_logical>[^;]*); OS ")
+
+
+def _later_key(key: str) -> str:
+    return LATER + key[len("perf.e2."):]
+
+
+def _later_scope() -> list[str]:
+    from perf.container.policy import LATER_CAMPAIGN_EDITORS
+    return sorted(LATER_CAMPAIGN_EDITORS, key=lambda e: E2_DISPLAY.get(e, e).casefold())
+
+
+def _names(editors) -> str:
+    names = [E2_DISPLAY.get(e, e) for e in editors]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def _recorded(value) -> str:
+    return "not recorded" if value is None else str(value)
+
+
+def _machine_kind(summary: dict) -> tuple:
+    """The machine type a job ran on: host class, CPU model, CPU quota, logical CPUs.
+    The OS build is left out: the same Space type can run a later kernel build."""
+    host = summary.get("host") or {}
+    return (summary.get("host_class") or "not recorded",
+            *(_recorded(host.get(key)) for key in ("cpu_model", "cpu_quota", "cpu_cores_logical")))
+
+
+def _machine_kind_from_facts(facts: dict):
+    """The same tuple, read back from a campaign's facts (``_host_block`` of its first job)."""
+    match = _HOST_BLOCK.match(str(facts.get("perf.e2.host", "")))
+    if not match:
+        return None
+    return (str(facts.get("perf.e2.host_class")), match["cpu_model"], match["cpu_quota"], match["cpu_cores_logical"])
+
+
+def _kind_text(kind: tuple) -> str:
+    return "%s hosts with %s, a CPU quota of %s and %s logical CPUs" % kind
+
+
+TYPING_DOCUMENT = "typing brief"
+
+
+def _trial_document(row) -> str:
+    """The name a trial's document is compared under: its workload, or for a typing trial (benchmark_typing
+    records the brief's SHA-256 but no workload) the typing brief. Empty when the trial names neither."""
+    workload = e2_cells.trial_workload(row)
+    if workload:
+        return workload
+    return TYPING_DOCUMENT if row.get("criterion_id") == "TYPING" else ""
+
+
+def _documents(roots) -> dict:
+    """Each document name a campaign's trials opened, with the SHA-256 of every file opened under it."""
+    docs: dict = {}
+    for root in roots:
+        for row in _iter_trials(Path(root)):
+            sha = (row.get("environment") or {}).get("fixture_sha256") or row.get("fixture_sha256")
+            name = _trial_document(row)
+            if name and sha:
+                docs.setdefault(name, set()).add(sha)
+    return docs
+
+
+def _published_documents() -> tuple[dict, set]:
+    record = json.loads(Path(PUBLISHED_DOCUMENTS).read_text())
+    docs = {name: set(shas) for name, shas in record["documents"].items()}
+    brief = (record.get("typing_brief") or {}).get("sha256")
+    if brief:
+        docs[TYPING_DOCUMENT] = set(brief)
+    return docs, set(record.get("generated_per_sample") or ())
+
+
+def _published_record() -> dict:
+    return json.loads(Path(PUBLISHED_DOCUMENTS).read_text())
+
+
+def _unhashed_documents(roots, per_sample: set) -> list:
+    """Measured trials of a fixed document that record no SHA-256, or that name no document at all: they could
+    not be compared, so they refuse."""
+    missing = set()
+    for root in roots:
+        for row in _iter_trials(Path(root)):
+            if row.get("outcome") != "measured":
+                continue
+            name = _trial_document(row)
+            sha = (row.get("environment") or {}).get("fixture_sha256") or row.get("fixture_sha256")
+            if not name:
+                missing.add("a %s trial with no document name (%s)" % (row.get("criterion_id"), row.get("editor_id")))
+            elif name not in per_sample and not sha:
+                missing.add("%s (%s)" % (name, row.get("editor_id")))
+    return sorted(missing)
+
+
+def _generator_check(per_sample: set, record: dict) -> None:
+    """A document generated per sample is compared by its generator: the generator's source and its settings
+    must be the ones the published campaign ran with (``generators`` in the published record)."""
+    from perf.fixtures.profiles import size_ladder
+    import hashlib
+    generators = record.get("generators") or {}
+    for name in sorted(per_sample):
+        entry = generators.get(name)
+        if not entry:
+            raise ValueError("the published record names no generator for %s, generated per sample" % name)
+        source = ROOT / entry["source"]
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        rows = [row for row in size_ladder() if row.get("workload_id") == name]
+        if digest != entry["sha256"] or not rows or rows[0] != entry["profile"]:
+            raise ValueError("the generator of %s differs from the one the published campaign ran with (%s)"
+                             % (name, entry["source"]))
+
+
+def _c10_onlyoffice_text(roots) -> str:
+    """Disclosure (d): OnlyOffice's C10 is said to be read from canvas pixels only when its records say so."""
+    detections = set()
+    for root in roots:
+        for row in _iter_trials(Path(root)):
+            if row.get("editor_id") == "onlyoffice" and row.get("criterion_id") == "C10":
+                detections.add(row.get("detection") or (row.get("diagnostic") or {}).get("detection"))
+    if "canvas_pixels" in detections:
+        return ("OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its "
+                "C10 (scrolling) is measured from canvas pixels. The scroll is one wheel notch over the page, which "
+                "OnlyOffice turns into a 45 px step whatever the wheel's size; every other editor's C10 scrolls its "
+                "page by 600 px. The time ends at the first frame that changes, and that frame must show the picture "
+                "before the scroll moved up by it, or the sample is refused.")
+    if detections:
+        return ("OnlyOffice draws its own scrollbar. None of its C10 (scrolling) records in this campaign was read from "
+                "canvas pixels; its C10 cells say what was measured.")
+    return "OnlyOffice has no C10 (scrolling) record in this campaign."
+
+
+def later_unset_facts() -> dict:
+    """The later section's facts before its campaign has data: the template still renders, and says so."""
+    facts = {_later_key(k): v for k, v in unset_facts().items()}
+    names = _names(_later_scope())
+    facts.update({
+        LATER + "measured": "not yet measured",
+        LATER + "editors": names,
+        LATER + "scope": names,
+        LATER + "unmeasured": "",
+        LATER + "dates": "not yet measured",
+        LATER + "intro": "This campaign is not yet measured: no table of this section has a figure yet.",
+        LATER + "table.TYPING": "not yet measured",
+        LATER + "lead": (
+            "%s are timed in the browser by a campaign of their own, on the same machine type and with the same "
+            "lanes and documents. That campaign is not yet measured; the section %s, after the results, says so "
+            "and is where its results go, with the rest in Appendix K." % (names, LATER_SECTION)),
+        LATER + "comparison": "The later campaign is not yet measured, so it has not been compared with the campaign above.",
+        LATER + "c10_onlyoffice": (
+            "OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its "
+            "C10 (scrolling) is to be measured from canvas pixels, by one wheel notch (a 45 px step in OnlyOffice; "
+            "every other editor's C10 scrolls 600 px). Not yet measured."),
+    })
+    return facts
+
+
+def later_facts(roots, published: dict, *, published_roots=None, superseded_cells=None) -> dict:
+    """The later campaign's facts, under ``perf.e2.later.*``.
+
+    ``published`` holds the published campaign's ``perf.e2.*`` facts (built or
+    carried); ``published_roots`` its run folders when they are on this machine.
+    An editor the published campaign measured is refused: one editor, one campaign.
+    Another machine type is refused. Other documents (a document name opened with
+    a file of another SHA-256, or a name the published campaign did not open) are
+    refused, against the published run folders when they are here and against
+    ``PUBLISHED_DOCUMENTS`` when they are not. A name generated per sample has no
+    fixed hash and is compared by its generator, not by hash.
+    """
+    roots = _require_campaign_roots([Path(root) for root in roots])
+    record = _published_record()
+    # Every check reads the rows the tables read: replaced cells are left out (Codex review 2026-11-22).
+    with e2_cells._listing_scope(), e2_cells.superseded_cells(superseded_cells):
+        editors = sorted({e for root in roots for e in _editors(root, root)},
+                         key=lambda e: E2_DISPLAY.get(e, e).casefold())
+        scheduled = published.get("perf.e2.scheduled")
+        old = set()
+        if isinstance(scheduled, dict):
+            for side in scheduled.values():
+                old |= set(side or {})
+        if published_roots:
+            old |= {e for root in published_roots for e in _editors(Path(root), Path(root))}
+        both = sorted(old & set(editors), key=lambda e: E2_DISPLAY.get(e, e).casefold())
+        if both:
+            raise ValueError("%s already in the published campaign; an editor is measured by one campaign only"
+                             % ", ".join(E2_DISPLAY.get(e, e) for e in both))
+        summaries = list(_all_job_summaries(roots))
+        kinds = {_machine_kind(row) for row in summaries}
+        if published_roots:
+            old_summaries = list(_all_job_summaries(published_roots))
+            reference = {_machine_kind(row) for row in old_summaries}
+            old_seeds = {str(row.get("seed")) for row in old_summaries}
+            old_runners = {row.get("runner") for row in old_summaries}
+        else:
+            # Carried: every machine type of the published campaign, as its record lists them.
+            reference = ({_machine_kind_from_facts(published)} | {tuple(m) for m in record.get("machines") or ()}) - {None}
+            old_seeds = set(record.get("seeds") or ())
+            old_runners = set(record.get("runners") or ())
+        if not old_seeds or not old_runners:
+            raise ValueError("the published campaign records no seeds or lanes to compare the later campaign with")
+        new_seeds = {str(row.get("seed")) for row in summaries}
+        if new_seeds != old_seeds:
+            raise ValueError("the later campaign ran other seeds: %s vs %s" % (sorted(new_seeds), sorted(old_seeds)))
+        new_runners = {row.get("runner") for row in summaries}
+        if not new_runners <= old_runners:
+            raise ValueError("the later campaign ran other lanes: %s" % sorted(new_runners - old_runners))
+        # The report promises the same lanes and documents, so a later campaign
+        # that left some out is refused too, not built with figures missing
+        # (CodeAnt on #285, 2026-11-23).
+        if not old_runners <= new_runners:
+            raise ValueError("the later campaign left out lanes the published campaign ran: %s"
+                             % sorted(old_runners - new_runners))
+        if not reference:
+            raise ValueError("the published campaign records no machine type to compare the later campaign with")
+        if not kinds <= reference:
+            raise ValueError("the later campaign ran on another machine type: %s vs %s"
+                             % (sorted(kinds - reference), sorted(reference)))
+        recorded, per_sample = _published_documents()
+        old_docs = _documents(published_roots) if published_roots else recorded
+        new_docs = _documents(roots)
+        other = sorted(w for w, shas in new_docs.items()
+                       if w not in per_sample and not shas <= old_docs.get(w, set()))
+        if other:
+            raise ValueError("the later campaign measured other documents than the published campaign: %s"
+                             % ", ".join(other))
+        unhashed = _unhashed_documents(roots, per_sample)
+        if unhashed:
+            raise ValueError("the later campaign measured documents with no SHA-256 to compare: %s" % ", ".join(unhashed))
+        left_out = sorted(set(old_docs) - set(new_docs))
+        if left_out:
+            raise ValueError("the later campaign left out documents the published campaign measured: %s"
+                             % ", ".join(left_out))
+        _generator_check({w for w in per_sample if w in new_docs}, record)
+        c10 = _c10_onlyoffice_text(roots)
+        view = _campaign_view(roots)
+    facts = {_later_key(k): v for k, v in facts_from_roots(roots, superseded_cells=superseded_cells).items()}
+    names = _names(editors)
+    first, last = view["start"] or "not recorded", view["end"] or "not recorded"
+    dates = first if first == last else "%s to %s" % (first, last)
+    when = "on %s" % first if first == last else "from %s to %s" % (first, last)
+    missing = [e for e in _later_scope() if e not in editors]
+    machine = _kind_text(sorted(kinds)[0]) if len(kinds) == 1 else "; ".join(_kind_text(k) for k in sorted(kinds))
+    hashed = "every document this campaign opened has the SHA-256 of a document the campaign above opened under the same name"
+    if published_roots:
+        comparison = "Both campaigns ran on %s, and %s." % (machine, hashed)
+    else:
+        comparison = ("Both campaigns ran on %s. The campaign above is carried over from %s, and %s, as `build/%s` "
+                      "records them from its run summaries." % (
+                          machine, published.get("perf.e2.carried_from", "an earlier release"), hashed,
+                          Path(PUBLISHED_DOCUMENTS).name))
+        if TYPING_DOCUMENT in new_docs:
+            comparison += (" The typing brief is checked the same way: its run records name no document, and the "
+                           "record takes its SHA-256 from the brief's file at the harness commits the campaign above "
+                           "ran.")
+    if per_sample:
+        generated = sorted(per_sample)
+        one = len(generated) == 1
+        comparison += (" The document%s %s %s generated per sample, so %s compared by %s generator, not by hash: "
+                       "the generator's code and settings are the ones the campaign above ran with (checked by "
+                       "SHA-256)." % (
+            "" if one else "s", _names(generated), "is" if one else "are", "it is" if one else "they are",
+            "its" if one else "their"))
+    facts.update({
+        LATER + "measured": "measured",
+        LATER + "editors": names,
+        LATER + "scope": _names(_later_scope()),
+        LATER + "unmeasured": (
+            " %s %s no browser data in this campaign." % (_names(missing), "has" if len(missing) == 1 else "have")
+            if missing else ""),
+        LATER + "dates": dates,
+        LATER + "lead": (
+            "%s were timed in the browser by a campaign of their own, %s, on the same machine type and with the "
+            "same lanes and documents. Their results are in the section %s, after the results, and the rest in "
+            "Appendix K; their figures are not in the results or the other appendices." % (names, when, LATER_SECTION)),
+        LATER + "comparison": comparison,
+        LATER + "c10_onlyoffice": c10,
+    })
+    return facts
+
+
 RESOURCES_BLURB = (
     "**B8 — resources while opening and editing.** One fresh browser per launch opens the document, waits "
     "until the editor is idle, types sixteen characters into a body line on the first screen, and waits "
@@ -1467,6 +1909,17 @@ def _typing_job_of(job, summary, editor, kind) -> bool:
     return not order or any(entry[1] == editor for entry in order)
 
 
+def _unfinished_typing_job_of(job: Path, editor: str) -> bool:
+    """A typing-lane job with cells whose cell folders are this editor's, or nobody's yet."""
+    from perf.analysis import e2_cells
+    if job.parent.name != 'benchmark_typing' or not job.name.rpartition('-')[2].isdigit():
+        return False
+    if not (job / 'cells').is_dir():
+        return False
+    owners = {m.group(1) for m in (e2_cells._CELL_DIR.match(p.name) for p in e2_cells._listing(job / 'cells', '*')) if m}
+    return not owners or editor in owners
+
+
 def _typing_group_for_seed(roots, editor, kind, seed):
     from perf.analysis import e2_cells
     from perf.analysis.e2_typing import _sessions_from_jobs
@@ -1475,7 +1928,23 @@ def _typing_group_for_seed(roots, editor, kind, seed):
     for root in roots:
         root = Path(root)
         for job in e2_cells._job_roots(root):
-            summary = e2_cells._load_summary(job) or {}
+            # A typing job measured again by a later run is read from that run only:
+            # pooling both counted its schedule twice ("n = 6 of 12", 2026-11-23).
+            if e2_cells.job_superseded(job, editor):
+                continue
+            summary = e2_cells._load_summary(job)
+            if summary is None and _unfinished_typing_job_of(job, editor):
+                # A job pulled mid-run has cells but no summary yet: read as {}, it
+                # matched every editor and blocked their typing cells ("run policy",
+                # 2026-11-23). Skipping it would hide an unfinished measurement, so the
+                # build refuses; only for a typing job of this editor (or of no editor
+                # yet), as another editor's table refuses its own (Gitar review, #286).
+                raise ValueError("typing job %s has no readable summary.json: an unfinished job cannot be published" % job)
+            if summary is None:
+                # Another editor's unfinished job (or another lane's): read as {}, it
+                # matched this editor and blocked its complete cell with "run policy"
+                # (CodeRabbit on #287). That editor's own table refuses it.
+                continue
             if summary.get('seed') not in (None, seed):
                 continue
             if not _typing_job_of(job, summary, editor, kind):
@@ -1520,15 +1989,158 @@ def _typing_progress_text(progress) -> str:
     return 'characters typed in the refused sessions that recorded progress: ' + ', '.join(f'{value:,}' for value in typed)
 
 
+def _typing_budget_text(roots, editor, kind, seed, refusals=None):
+    """"did not finish within the hour" when every session tried ran into the time budget, else None.
+
+    Later campaign, 2026-11-23: OpenDoc's typing sessions all ran into the
+    3,600 s budget every editor gets (``editor_timeout`` / ``budget_exceeded``)
+    and the job did not try the rest; its summary says
+    ``insufficient_typing_sessions``, which hides why. The owner keeps the budget
+    the same for every editor, so the report says so with the words typed.
+
+    ``refusals`` is the seed group's own tally (vetoes, quarantine and unreadable
+    attempts included): any refusal other than the budget and the sessions not
+    tried after it means the cell keeps its usual explanation (codex review).
+    """
+    if refusals is not None:
+        tally = dict(refusals)
+        if not tally.get('budget_exceeded') or set(tally) - {'budget_exceeded', _TYPING_NOT_TRIED}:
+            return None
+    stopped, untried = [], 0
+    for root in roots:
+        # The attempt reader drops a row's own seed; the job's summary names it.
+        for _, path, row in e2_cells._iter_attempt_rows(Path(root)):
+            if (row.get('editor_id') != editor or row.get('criterion_id') != 'TYPING'
+                    or row.get('session_kind') != kind
+                    or (e2_cells._load_summary(Path(path).parents[3]) or {}).get('seed') != seed):
+                continue
+            why = row.get('failure_reason')
+            if row.get('outcome') == 'not_run' and why == _TYPING_NOT_TRIED:
+                untried += 1
+            elif row.get('refusal_code') == 'editor_timeout' and why == 'budget_exceeded':
+                stopped.append(row)
+            else:
+                return None
+    if not stopped:
+        return None
+    if refusals is not None and (len(stopped), untried) != (tally.get('budget_exceeded', 0), tally.get(_TYPING_NOT_TRIED, 0)):
+        return None
+    # Only the campaign's own budget, the one every editor gets, is called that.
+    if {row.get('budget_s') for row in stopped} - {TYPING_BUDGET_S}:
+        return None
+    words = [row.get('words_typed') for row in stopped]
+    words = [w for w in words if isinstance(w, (int, float)) and not isinstance(w, bool)]
+    text = 'did not finish within the hour: %d session%s stopped at the one-hour limit every editor has' % (
+        len(stopped), '' if len(stopped) == 1 else 's')
+    if words:
+        listed = [f'{w:,}' for w in words]
+        joined = listed[0] if len(listed) == 1 else ', '.join(listed[:-1]) + ' and ' + listed[-1]
+        text += ', with %s word%s typed' % (joined, '' if len(words) == 1 and words[0] == 1 else 's')
+    if untried:
+        text += '; the other %d %s not tried' % (untried, 'was' if untried == 1 else 'were')
+    return text
+
+
+def _typing_mismatch_text(roots, editor, kind, seed, refusals):
+    """"the typed text did not match" when every session tried was refused for it, else None.
+
+    react-docx, later campaign: it drops the first key after each Enter
+    (checklist 8.1.1), so every session typed all its keys and the check
+    refused the text read back at the same place. The cell names that instead
+    of "not enough sessions or run blocked (insufficient_typing_sessions)".
+    """
+    tally = dict(refusals or {})
+    if not tally.get('text_mismatch') or set(tally) - {'text_mismatch', _TYPING_NOT_TRIED}:
+        return None
+    refused, untried = [], 0
+    for root in roots:
+        for _, path, row in e2_cells._iter_attempt_rows(Path(root)):
+            if (row.get('editor_id') != editor or row.get('criterion_id') != 'TYPING'
+                    or row.get('session_kind') != kind
+                    or (e2_cells._load_summary(Path(path).parents[3]) or {}).get('seed') != seed):
+                continue
+            why = row.get('failure_reason')
+            if row.get('outcome') == 'not_run' and why == _TYPING_NOT_TRIED:
+                untried += 1
+            elif why == 'text_mismatch':
+                refused.append(row)
+            else:
+                return None
+    if (len(refused), untried) != (tally.get('text_mismatch', 0), tally.get(_TYPING_NOT_TRIED, 0)):
+        return None
+
+    def _counts(values):
+        values = [v for v in values if isinstance(v, int) and not isinstance(v, bool)]
+        if len(values) != len(refused):
+            return None
+        listed = sorted({f'{v:,}' for v in values}, key=lambda t: int(t.replace(',', '')))
+        return listed
+
+    typed = _counts([row.get('characters_typed') for row in refused])
+    offsets = _counts([row.get('first_divergence_offset') for row in refused])
+    n = len(refused)
+    text = 'the typed text did not match: %d session%s' % (n, '' if n == 1 else 's')
+    if typed:
+        text += ' typed %s characters%s' % (' or '.join(typed), ' each' if n > 1 and len(typed) == 1 else '')
+        text += ', and the text read back'
+    else:
+        text += ' read back text that'
+    text += ' first differs from it' if typed else ' first differs from the typed text'
+    if offsets:
+        # The check compares normalized text (perf/runner/benchmark_typing.py):
+        # the offset counts characters of that, not of the raw text (Codex, 2026-11-23).
+        text += (' after %s characters of the compared text (spaces collapsed, quotes folded, '
+                 'list markers set aside)' % ' or '.join(offsets))
+    if untried:
+        text += '; the other %d %s not tried' % (untried, 'was' if untried == 1 else 'were')
+    return text
+
+
 def _typing_facts_group(group, fields, *, published: bool = False):
     if published:
         return {**group, "kept": [{name: row[name] for name in fields if name in row} for row in group["kept"]]}
     return {key: value for key, value in group.items() if key not in _TYPING_FIGURE_FIELDS}
 
 
+#: Rows a typing job writes for an editor it cannot type into: the not-applicable launch,
+#: and the repetitions it then does not try ("typing_sessions_unreachable").
+_TYPING_NOT_TRIED = 'typing_sessions_unreachable'
+#: The typing budget every editor gets (``--budget-s``, default 3,600 s).
+TYPING_BUDGET_S = 3600.0
+
+
+def typing_does_not_apply(roots, editor, kind):
+    """The recorded reason when typing does not apply to this editor (a viewer), else None.
+
+    True only when the editor has no other kind of typing row of this session kind:
+    at least one ``not_applicable`` and otherwise only the repetitions not tried after
+    it. Nutrient on the Spaces, 2026-11-22: 2 such rows and 4 not tried per job, and
+    the job's summary says ``insufficient_typing_sessions``, which is not the reason.
+    """
+    reasons, other = set(), False
+    for root in roots:
+        for row in _iter_trials(Path(root)):
+            if (row.get('editor_id') != editor or row.get('criterion_id') != 'TYPING'
+                    or row.get('session_kind') != kind):
+                continue
+            outcome = row.get('outcome')
+            why = row.get('failure_reason') or (row.get('diagnostic') or {}).get('reason')
+            if outcome == 'not_applicable':
+                reasons.add(why or 'not applicable')
+            elif not (outcome == 'not_run' and why == _TYPING_NOT_TRIED):
+                other = True
+    if other or not reasons:
+        return None
+    return '; '.join(sorted(reasons))
+
+
 def typing_table(facts, roots, editor, kind):
     from perf.analysis.e2_typing import read_sessions, resource_values
     label = f'{DISPLAY.get(editor, editor)} — {kind}'
+    reason = typing_does_not_apply(roots, editor, kind)
+    if reason:
+        facts[f'perf.e2.{editor}.TYPING.{kind}.reproduced'] = False
+        return label + ': does not apply (' + reason + ').'
     seeds = _distinct_seeds(roots)
     if len(seeds) < 2 or (len(seeds) == 2 and seeds[0] == seeds[1]):
         return label + ': two distinct seeds and runs required.' + (
@@ -1550,6 +2162,10 @@ def typing_table(facts, roots, editor, kind):
                     f"{name}: wrong schedule (n = {kept_n} of {scheduled}; "
                     f"this campaign schedules {TYPING_PUBLICATION_SESSIONS} sessions){suffix}"
                 )
+            elif kept_n == 0 and (budget := _typing_budget_text(roots, editor, kind, group.get('seed'), group['refusals'])):
+                reasons.append(f"{name}: {budget}")
+            elif kept_n == 0 and (mismatch := _typing_mismatch_text(roots, editor, kind, group.get('seed'), group['refusals'])):
+                reasons.append(f"{name}: {mismatch}")
             else:
                 reasons.append(
                     f"{name}: not enough sessions or run blocked (n = {kept_n} of {scheduled}; "

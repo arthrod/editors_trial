@@ -7,7 +7,15 @@ from pathlib import Path
 import shlex
 import subprocess
 from .mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
-from .policy import INSTALLS, harness_install, git_pins, npm_pins, verify_commit, verify_version
+from .policy import FETCHES, INSTALLS, declares_dependencies, harness_install, git_pins, npm_pins, verify_commit, verify_version
+
+# OnlyOffice's fetched release trees (git-ignored; harness/onlyoffice/fetch.mjs and
+# harness/ui/onlyoffice/fetch.py unpack them unmodified, SHA-512 pinned). They are
+# vendored builds, not install targets: their package.json files are x2t's
+# module-type marker and Monaco's own manifests inside the editor build. Only
+# these two paths; a directory called vendor anywhere else is walked as before.
+FETCHED_VENDOR_TREES = frozenset({'harness/onlyoffice/vendor', 'harness/ui/onlyoffice/vendor'})
+LOCKFILES = frozenset({'package-lock.json', 'pnpm-lock.yaml', 'bun.lock', 'bun.lockb'})
 
 
 def main():
@@ -50,15 +58,26 @@ def main():
             record['commits'][name] = verify_commit(pin, command(['git', 'rev-parse', 'HEAD'], path, True))
         if name in INSTALLS:
             command(INSTALLS[name], path)
+    for script in FETCHES:
+        command(['python3', '-I', script])
     # Traverse tracked package manifests, never node_modules or editor symlinks.
     manifests = []
     for directory, children, files in os.walk('harness', followlinks=False):
-        children[:] = sorted(name for name in children if name not in ('node_modules', '.git') and not (Path(directory) / name).is_symlink())
+        children[:] = sorted(name for name in children if name not in ('node_modules', '.git') and not (Path(directory) / name).is_symlink()
+                             and (Path(directory) / name).as_posix() not in FETCHED_VENDOR_TREES)
         if 'package.json' in files:
             manifests.append(str(Path(directory) / 'package.json'))
     for manifest in manifests:
         directory = Path(manifest).parent
-        command(harness_install({path.name for path in directory.iterdir()}), directory)
+        files = {path.name for path in directory.iterdir()}
+        # A manifest that declares no dependency has an empty graph: nothing to
+        # install and nothing a lockfile would pin (harness/onlyoffice's says only
+        # that its scripts are ES modules). Before this rule such a manifest
+        # refused setup with missing_lockfile; one with a lockfile installs as before.
+        if not (files & LOCKFILES) and not declares_dependencies(Path(manifest).read_text()):
+            print(f'skip {directory}: package.json declares no dependency, nothing to install', flush=True)
+            continue
+        command(harness_install(files), directory)
     for directory, package, version in packages:
         command(['pnpm', 'add', '--save-exact', f'{package}@{version}'], Path(directory))
         actual = command(['node', '-p', f'JSON.parse(require("fs").readFileSync("node_modules/{package}/package.json")).version'], Path(directory), True)

@@ -94,6 +94,72 @@ export const EDIT_SURFACES = {
     root: null,
     usable: 'window.__aprysePerf && window.__aprysePerf.state === \'rendered\'',
   },
+  // Nutrient is a viewer (no caret, nothing editable): usable is the host's own
+  // flag, set when the converted document is shown (harness/ui/nutrient/main.js).
+  nutrient: {
+    kind: 'dom',
+    root: null,
+    usable: '!!(window.__host && window.__host.ready === true)',
+  },
+  // react-docx: each paragraph is its own host inside the page body, and only
+  // the active one is contenteditable="true" (the others "false" until a
+  // click activates them; probed 2026-11-22). Headers and footers are regions
+  // outside the body. A key lands once the click is inside a paragraph's text.
+  reactdocx: {
+    kind: 'dom',
+    root: '[data-docx-page-body] [data-docx-paragraph-host]',
+    block: '[data-docx-paragraph-host]',
+    // No paragraph is contenteditable before a click, so the default test
+    // (the first root isContentEditable) is false on a fresh load: usable is
+    // the page's own loaded flag and a painted body paragraph with text.
+    usable:
+      '(() => { if (!(window.__host && window.__host.ready === true)) return false;'
+      + ' for (const el of document.querySelectorAll("[data-docx-page-body] [data-docx-paragraph-host]")) {'
+      + '   if ((el.innerText || "").trim().length > 0 && el.getBoundingClientRect().height > 0) return true;'
+      + ' }'
+      + ' return false; })()',
+  },
+  // OnlyOffice (CryptPad build): its whole application runs in a same-origin
+  // frame of the host page (editor_frame.mjs routes the lanes' page calls
+  // there). It draws the document on the #id_viewer canvas and keeps the
+  // keyboard in a textarea (#area_id) it moves to the caret; the text is only
+  // in its model, read by the host page's window.__host.text() and
+  // caretParagraphText() (its logic document's paragraphs, by OnlyOffice's
+  // own GetText; probed 2026-11-22).
+  // pageRoot is the view holding the page canvas and the overlay canvas over
+  // it that takes the clicks: a hit on the overlay is a hit on the document.
+  onlyoffice: { kind: 'model', model: 'onlyoffice', pageRoot: '#id_main_view' },
+  // BetterOffice paints each page on a <canvas data-page-index> inside
+  // [data-docx-pages-host]; its keys go to a caret-sized
+  // textarea.paged-editor__input, a sibling of the pages under
+  // .docx-editor__scroll-container (the toolbar is outside it). The text is
+  // in the editor's worker: every read goes through window.__host.ref.current
+  // (readParagraphs, readSelectionInfo), which is async (probed 2026-11-22,
+  // @betteroffice/docx-react 0.5.1: the sync getDocument/getPageContent throw
+  // DocxSyncApiError without legacySyncApi).
+  betteroffice: {
+    kind: 'model',
+    model: 'betteroffice',
+    pageRoot: '[data-docx-pages-host] canvas[data-page-index]',
+    inputHost: '.docx-editor__scroll-container',
+  },
+  // OpenDoc (harness/ui/opendoc, the vendor's editor as it ships): its engine
+  // paints each page into a canvas (`.page-wrap canvas.page`) and draws the
+  // caret in the sheet's overlay; keyboard input goes to a caret-sized
+  // textarea (#editorTextInput) inside the scroller #viewport. The only DOM
+  // text is a screen-reader mirror (#a11yDocument, sr-only, laid out apart
+  // from the pages), so text is read from the engine through the editor's
+  // host contract, window.opendoc.ai.read (probed 2026-11-22).
+  opendoc: {
+    kind: 'model',
+    model: 'opendoc',
+    pageRoot: '#pages .page-wrap[data-page-number="1"]',
+    inputHost: '#viewport',
+    // The host's ready flag (first paint) and its settled flag: the editor's
+    // own "painted with its real faces" signal after its background font
+    // upgrade, which repaints every page. Edits start after that repaint.
+    usable: '!!(window.__host && window.__host.ready === true && window.__host.settled === true)',
+  },
 };
 
 export function editSurface(editorId) {
@@ -140,6 +206,20 @@ export const DOCUMENT_TEXT_SURFACES = {
   // text is read through WordCraft's own select all + copy (c14_whole_text.mjs,
   // #196) — the same sentinel-checked clipboard read C14 already uses.
   wordcraft: { kind: 'select_all_copy' },
+  // react-docx mounts a window of pages ([data-docx-page-wrapper]) on a long
+  // document; the page bodies leave out the header and footer regions.
+  reactdocx: { kind: 'dom', root: '[data-docx-page-body]', whole: false },
+  // Nutrient is a viewer: it shows the PDF it made from the .docx, pages load
+  // lazily and no text is in the DOM. The whole text is read through the SDK's
+  // own API, page by page (instance.textLinesForPageIndex), as probe.mjs does.
+  nutrient: { kind: 'model', model: 'nutrient' },
+  // OnlyOffice holds the whole document in its model (main document only).
+  onlyoffice: { kind: 'model', model: 'onlyoffice' },
+  // BetterOffice: the body story from the editor's own readParagraphs (the
+  // whole document, whatever is painted).
+  betteroffice: { kind: 'model', model: 'betteroffice' },
+  // OpenDoc: the engine's own read of the body, block by block (aiRead).
+  opendoc: { kind: 'model', model: 'opendoc' },
 };
 
 export function hasDocumentTextSurface(editorId) {
@@ -171,6 +251,31 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, dom
     return result('', 'absent', model || 'unavailable');
   }
 
+  // Nutrient's text API is asynchronous; page.evaluate awaits the promise
+  // (this function is only ever run through page.evaluate).
+  if (kind === 'model' && model === 'nutrient') {
+    const inst = window.__host && window.__host.instance;
+    if (!inst || typeof inst.textLinesForPageIndex !== 'function') {
+      return result('', 'absent', 'nutrient_model', 'nutrient instance unavailable');
+    }
+    return (async () => {
+      try {
+        const pages = [];
+        for (let i = 0; i < inst.totalPageCount; i += 1) {
+          const lines = await inst.textLinesForPageIndex(i);
+          // Trial mode (no license key) stamps every page with this line; it is
+          // the SDK's watermark, not the document's text.
+          pages.push(lines.map((line) => line.contents)
+            .filter((text) => String(text).trim() !== 'For Evaluation Purposes Only')
+            .join('\n'));
+        }
+        return result(pages.join('\n'), 'perf_model', 'nutrient_model');
+      } catch (error) {
+        return result('', 'absent', 'nutrient_model', error && error.message ? error.message : error);
+      }
+    })();
+  }
+
   if (kind === 'model' && model === 'eigenpal') {
     const hook = window.__DOCX_EDITOR_E2E__;
     const editor = hook && typeof hook.getEditor === 'function' ? hook.getEditor() : null;
@@ -197,6 +302,90 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, dom
     } catch (error) {
       return result('', 'absent', 'docen_model', error && error.message ? error.message : error);
     }
+  }
+
+  if (kind === 'model' && model === 'onlyoffice') {
+    // The host page's reader of OnlyOffice's model (harness/ui/onlyoffice/main.js),
+    // from the editor's frame (editor_frame.mjs) or the host page itself.
+    const host = window.__host || (window.parent !== window ? window.parent.__host : null);
+    if (!host || typeof host.text !== 'function') {
+      return result('', 'absent', 'onlyoffice_model', 'onlyoffice host reader unavailable');
+    }
+    try {
+      const text = host.text();
+      if (text === null) return result('', 'absent', 'onlyoffice_model', 'onlyoffice model unavailable');
+      return result(text, 'perf_model', 'onlyoffice_model');
+    } catch (error) {
+      return result('', 'absent', 'onlyoffice_model', error && error.message ? error.message : error);
+    }
+  }
+
+  if (kind === 'model' && model === 'betteroffice') {
+    // Async: page.evaluate awaits the promise. readParagraphs flushes pending
+    // input first, then reads the body story at one version.
+    const ref = window.__host && window.__host.ref && window.__host.ref.current;
+    if (!ref || typeof ref.readParagraphs !== 'function') {
+      return result('', 'absent', 'betteroffice_model', 'betteroffice model unavailable');
+    }
+    return ref.readParagraphs({ view: 'accepted' }).then(
+      (read) => (read && read.ok && Array.isArray(read.paragraphs)
+        ? result(read.paragraphs.map((p) => String(p.text || '')).join('\n'), 'perf_model', 'betteroffice_model')
+        : result('', 'absent', 'betteroffice_model', 'readParagraphs refused: ' + JSON.stringify(read).slice(0, 200))),
+      (error) => result('', 'absent', 'betteroffice_model', error && error.message ? error.message : error),
+    );
+  }
+
+  if (kind === 'model' && model === 'opendoc') {
+    // The engine's read (opendoc.ai.read, a promise), page by page of blocks;
+    // a table block is read through the same contract's `table` read.
+    return (async () => {
+      const session = window.opendoc;
+      if (!session || !session.ai || typeof session.ai.read !== 'function') {
+        return result('', 'absent', 'opendoc_model', 'opendoc model unavailable');
+      }
+      try {
+        // The whole document or an absent oracle: a refused page (of blocks
+        // or of table rows), a truncated page with no cursor, or the cap
+        // reached before the last page never yields a shorter text
+        // (CodeRabbit on #283).
+        const PAGE_CAP = 100000;
+        const refused = (answer, what) => {
+          const why = answer && answer.refusal ? answer.refusal.code || answer.refusal.message : 'no answer';
+          return `opendoc ${what} refused: ${why}`;
+        };
+        const lines = [];
+        let cursor = null;
+        let done = false;
+        for (let page = 0; page < PAGE_CAP && !done; page += 1) {
+          const answer = await session.ai.read(cursor ? { tool: 'read', cursor } : { tool: 'read' });
+          if (!answer || !answer.ok || !answer.value) return result('', 'absent', 'opendoc_model', refused(answer, 'read'));
+          for (const block of answer.value.blocks || []) {
+            if (typeof block.text === 'string') lines.push(block.text);
+            else if (block.kind === 'table' && block.id) {
+              let rows = null;
+              let tableDone = false;
+              for (let t = 0; t < PAGE_CAP && !tableDone; t += 1) {
+                const table = await session.ai.read(rows ? { tool: 'table', table: block.id, cursor: rows } : { tool: 'table', table: block.id });
+                if (!table || !table.ok || !table.value) return result('', 'absent', 'opendoc_model', refused(table, 'table read'));
+                for (const row of table.value.rows || []) {
+                  for (const cell of row.cells || []) lines.push(String(cell.text || ''));
+                }
+                rows = table.value.nextCursor;
+                if (!rows) tableDone = true;
+              }
+              if (!tableDone) return result('', 'absent', 'opendoc_model', 'opendoc table read: page cap reached');
+            }
+          }
+          if (!answer.value.truncated) done = true;
+          else if (!answer.value.nextCursor) return result('', 'absent', 'opendoc_model', 'opendoc read: truncated page with no cursor');
+          else cursor = answer.value.nextCursor;
+        }
+        if (!done) return result('', 'absent', 'opendoc_model', 'opendoc read: page cap reached');
+        return result(lines.join('\n'), 'perf_model', 'opendoc_model');
+      } catch (error) {
+        return result('', 'absent', 'opendoc_model', error && error.message ? error.message : error);
+      }
+    })();
   }
 
   if (kind === 'model' && model === 'canvas_editor') {
@@ -435,6 +624,18 @@ export const READ_CLICK_HIT = ({ x, y }) => {
 
 /** Page context. Text of the paragraph at the caret, from the editor's model. */
 export const READ_MODEL_AT_CARET = (model) => {
+  if (model === 'opendoc') {
+    // The block the editor last announced the caret in (its `selection`
+    // event, kept by the host shim), read from the engine.
+    const session = window.opendoc;
+    const selection = window.__host && window.__host.selection;
+    const node = selection && selection.anchor && selection.anchor.node;
+    if (!session || !session.ai || typeof session.ai.read !== 'function' || !node) return null;
+    return session.ai.read({ tool: 'read', start: String(node), maxTokens: 1 }).then((answer) => {
+      const block = answer && answer.ok && answer.value && (answer.value.blocks || [])[0];
+      return block && typeof block.text === 'string' ? block.text : null;
+    }, () => null);
+  }
   if (model === 'docen') {
     const editor = window.__DOCEN__ && window.__DOCEN__.editor;
     if (!editor || !editor.state) return null;
@@ -448,6 +649,19 @@ export const READ_MODEL_AT_CARET = (model) => {
     const paragraph = cmd.getRangeParagraph();
     if (!Array.isArray(paragraph)) return null;
     return paragraph.map((el) => (el && typeof el.value === 'string' ? el.value : '')).join('');
+  }
+  if (model === 'onlyoffice') {
+    const host = window.__host || (window.parent !== window ? window.parent.__host : null);
+    return host && typeof host.caretParagraphText === 'function' ? host.caretParagraphText() : null;
+  }
+  if (model === 'betteroffice') {
+    // Async (page.evaluate awaits it): the editor's own caret read.
+    const ref = window.__host && window.__host.ref && window.__host.ref.current;
+    if (!ref || typeof ref.readSelectionInfo !== 'function') return null;
+    return ref.readSelectionInfo().then(
+      (info) => (info && typeof info.paragraphText === 'string' ? info.paragraphText : null),
+      () => null,
+    );
   }
   return null;
 };
@@ -492,8 +706,25 @@ export function usableExpression(editorId, selector) {
   const surface = editSurface(editorId);
   const sel = JSON.stringify(selector || surface.root || '');
   if (surface.kind === 'model') {
+    // OpenDoc declares its own (the host's flags); the older model surfaces
+    // declare none and keep their expressions below.
+    if (surface.model === 'opendoc') return surface.usable;
     if (surface.model === 'docen') {
       return '!!(window.__DOCEN__ && window.__DOCEN__.editor && window.__DOCEN__.editor.state)';
+    }
+    if (surface.model === 'onlyoffice') {
+      // The host page's ready flag (OnlyOffice's onDocumentReady) and the
+      // editor's logic document, from the editor's frame or the host page.
+      return '(() => { const f = document.querySelector("#root iframe"); let w = window.editor ? window : null;'
+        + ' try { if (!w && f && f.contentWindow && f.contentWindow.editor) w = f.contentWindow; } catch { w = null; }'
+        + ' const h = window.__host || (window.parent !== window ? window.parent.__host : null);'
+        + ' return !!(h && h.ready === true && w && w.editor.WordControl && w.editor.WordControl.m_oLogicDocument); })()';
+    }
+    if (surface.model === 'betteroffice') {
+      // The host page's flag: whenLayoutComplete() resolved (main.js), with a
+      // page canvas mounted.
+      return '!!(window.__host && window.__host.ready === true'
+        + ' && document.querySelector("[data-docx-pages-host] canvas[data-page-index]"))';
     }
     return '!!(window.__CANVAS_EDITOR_INSTANCE__ && window.__CANVAS_EDITOR_INSTANCE__.command'
       + ' && typeof window.__CANVAS_EDITOR_INSTANCE__.command.getValue === "function")';
@@ -515,6 +746,30 @@ export function usableExpression(editorId, selector) {
  * flattens blocks onto one line, hiding marker-only paragraphs.
  */
 export const READ_MODEL_DOCUMENT_TEXT = (model) => {
+  if (model === 'opendoc') {
+    // The engine's read of the body (opendoc.ai.read), one line per block; it
+    // reports no list markers, so there is no absorbed-item evidence.
+    const session = window.opendoc;
+    if (!session || !session.ai || typeof session.ai.read !== 'function') return null;
+    // The whole document or nothing: a truncated page with no cursor, or the
+    // cap reached before the last page, is no text, never a shorter one
+    // (CodeRabbit on #283, 4669191003; as the load reader above).
+    return (async () => {
+      const lines = [];
+      let cursor = null;
+      for (let page = 0; page < 100000; page += 1) {
+        const answer = await session.ai.read(cursor ? { tool: 'read', cursor } : { tool: 'read' });
+        if (!answer || !answer.ok || !answer.value) return null;
+        for (const block of answer.value.blocks || []) {
+          if (typeof block.text === 'string') lines.push(block.text);
+        }
+        if (!answer.value.truncated) return { text: lines.join('\n'), absorbed_items: [] };
+        if (!answer.value.nextCursor) return null;
+        cursor = answer.value.nextCursor;
+      }
+      return null;
+    })().catch(() => null);
+  }
   if (model === 'docen') {
     const editor = window.__DOCEN__ && window.__DOCEN__.editor;
     if (!editor || !editor.state || !editor.state.doc) return null;
@@ -537,6 +792,11 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
     });
     return { text: String(doc.textBetween(0, doc.content.size, '\n')), absorbed_items: absorbed };
   }
+  if (model === 'onlyoffice') {
+    const host = window.__host || (window.parent !== window ? window.parent.__host : null);
+    const text = host && typeof host.text === 'function' ? host.text() : null;
+    return text === null ? null : { text, absorbed_items: [] };
+  }
   if (model === 'canvas_editor') {
     const inst = window.__CANVAS_EDITOR_INSTANCE__;
     const cmd = inst && inst.command;
@@ -547,6 +807,19 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
       .filter(Boolean)
       .join('\n');
     return { text, absorbed_items: [] };
+  }
+  if (model === 'betteroffice') {
+    // Async (page.evaluate awaits it). One line per body paragraph, so an
+    // empty paragraph keeps its own line. No list item is absorbed here: the
+    // model text carries no list labels (DocxParagraphText.list is separate).
+    const ref = window.__host && window.__host.ref && window.__host.ref.current;
+    if (!ref || typeof ref.readParagraphs !== 'function') return null;
+    return ref.readParagraphs({ view: 'accepted' }).then(
+      (read) => (read && read.ok && Array.isArray(read.paragraphs)
+        ? { text: read.paragraphs.map((p) => String(p.text || '')).join('\n'), absorbed_items: [] }
+        : null),
+      () => null,
+    );
   }
   return null;
 };

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E2 fake host: BetterOffice's page shape and async editor ref</title>
+  </head>
+  <body>
+    <!-- The DOM shape @betteroffice/docx-react 0.5.1 mounts (probed 2026-11-22):
+         pages are canvases, keys go to a caret-sized textarea beside them. -->
+    <div class="docx-editor__scroll-container">
+      <div data-docx-pages-host="true">
+        <div class="paged-editor__page"><canvas data-page-index="0" width="200" height="100"></canvas></div>
+      </div>
+      <textarea class="paged-editor__input" style="position:absolute; left:40px; top:30px; width:1px; height:20px; padding:0; border:0"></textarea>
+    </div>
+    <script>
+      // The editor ref's text and caret reads are async (the text is in a worker).
+      var paragraphs = [
+        { story: 'body', paraId: 'body:p0', text: 'Alpha one' },
+        { story: 'body', paraId: 'body:p1', text: 'Beta two' },
+      ];
+      var ref = {
+        readParagraphs: function (request) {
+          if (!request || request.view !== 'accepted') return Promise.reject(new Error('missing field `view`'));
+          return new Promise(function (resolve) {
+            setTimeout(function () { resolve({ ok: true, version: '1', view: 'accepted', paragraphs: paragraphs }); }, 5);
+          });
+        },
+        readSelectionInfo: function () {
+          return Promise.resolve({ paraId: 'body:p1', before: 'Be', after: 'ta two', paragraphText: 'Beta two', selectedText: '' });
+        },
+      };
+      var ready = new URLSearchParams(location.search).get('ready') !== '0';
+      window.__host = { ref: { current: ref }, ready: ready, error: null };
+      document.querySelector('textarea.paged-editor__input').focus();
+    </script>
+  </body>
+</html>

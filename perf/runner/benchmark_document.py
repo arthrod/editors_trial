@@ -199,6 +199,130 @@ DOCUMENT_TARGETS = {
             "own find UI appears in a future pin the generic selector set will pick it up"
         ),
     },
+    "reactdocx": {
+        # Report E2's later editors. Verified in Chrome on prose-500w (2026-11-22):
+        # two [data-docx-page-wrapper] pages (1056 px), 17 paragraph hosts, all
+        # inside [data-docx-page-body]; the header/footer are outside it.
+        "doc_selector": "[data-docx-page-body] [data-docx-paragraph-host]",
+        "page_selector": "[data-docx-page-wrapper]",
+        "page_model": "page",
+        "edit_selector": "[data-docx-page-body] [data-docx-paragraph-host]",
+        "ready_js": (
+            "!!(window.__host && window.__host.ready === true && "
+            "document.querySelector('[data-docx-page-wrapper] [data-docx-paragraph-host]'))"
+        ),
+        "find_input_selector": None,
+        "find_count_selector": None,
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": "no find UI in the measured host (the package ships no toolbar)",
+        "note": (
+            "Paged host: [data-docx-page-wrapper] pages with paragraph hosts inside "
+            "[data-docx-page-body]. Only the clicked paragraph is contenteditable; keys go to a "
+            "caret-sized textarea. The ready gate is the host page's own flag, set when the "
+            "viewer's load promise settles (harness/ui/react-docx/main.js)."
+        ),
+    },
+    "nutrient": {
+        # Report E2's later campaign. Verified in Chrome on prose-500w (2026-11-22):
+        # the viewer's UI lives in an open shadow root on #viewer .PSPDFKit-Container;
+        # each page is a section[data-is-page] holding the page image and a text
+        # layer (innerText is the page's text). Two pages, loaded lazily.
+        "doc_selector": "#viewer .PSPDFKit-Container",
+        "document_selector": "section[data-is-page]",
+        "page_selector": None,
+        "page_model": "continuous_flow",
+        "edit_selector": "section[data-is-page]",
+        "usable_signal": "shadow_text",
+        "ready_js": "!!(window.__host && window.__host.ready === true)",
+        "c12_not_applicable": (
+            "Nutrient Web SDK is a viewer here: nothing in the document can be edited, so there "
+            "is no reflow after an edit to time"
+        ),
+        "find_input_selector": None,
+        "find_count_selector": None,
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": (
+            "C15 is not measured for this host: Nutrient has its own search box (seen in Chrome, "
+            "2026-11-22), but it sits in the viewer's shadow root, where the find probe cannot read "
+            "its match count"
+        ),
+        "note": (
+            "Nutrient Web SDK is a viewer: it converts the .docx to a PDF in the browser and shows "
+            "that, loaded from Nutrient's CDN (harness/ui/nutrient/main.js). The shadow host is "
+            "#viewer .PSPDFKit-Container; the document elements are the section[data-is-page] pages "
+            "inside it. C11 uses the shadow_text signal on them, as for Apryse. page_model="
+            "continuous_flow records probe visibility: the pages exist but cannot be counted from "
+            "light DOM. Nothing is editable, so C12 (reflow after an edit) cannot apply."
+        ),
+    },
+    "onlyoffice": {
+        # Report E2's later editors. OnlyOffice (CryptPad build) runs in a
+        # same-origin frame of its host page; the probe's page calls go there
+        # (editor_frame.mjs). Read in Chrome on prose-500w (2026-11-22): the
+        # page is drawn on the #id_viewer canvas under the #id_viewer_overlay
+        # canvas that takes the clicks; 16 paragraphs, 2 pages.
+        "doc_selector": "#id_viewer",
+        "page_selector": None,
+        # As for Apryse: the document is paginated (2 pages on prose-500w) but
+        # all pages are drawn on one canvas, so no page box can be counted from
+        # the DOM; continuous_flow records that, not a claim of no pages.
+        "page_model": "continuous_flow",
+        "edit_selector": "#id_viewer_overlay",
+        "document_selector": "#id_viewer",
+        "usable_signal": "screencast_ink",
+        # Holds in the host page (before the frame exists) and in the frame.
+        "ready_js": (
+            "(() => { const h = window.__host || (window.parent !== window ? window.parent.__host : null); "
+            "return !!(h && h.ready === true); })()"
+        ),
+        # OnlyOffice's own find bar (Ctrl+F / Cmd+F): its input and its "k/N" count.
+        "find_input_selector": "#search-bar-text",
+        "find_count_selector": "#search-bar-results",
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": "OnlyOffice's own search bar: #search-bar-text, result count #search-bar-results ('k/N')",
+        "note": (
+            "OnlyOffice paints each page on the #id_viewer canvas inside its editor frame; the text "
+            "is only in its model, read by the host page (window.__host.text()). C11 uses "
+            "screencast_ink on the canvas's rect. C12 does not apply: the host paints whole pages "
+            "(no paragraph boxes), the canvas/docen ruling."
+        ),
+    },
+    "betteroffice": {
+        # Report E2's later editors. Verified in Chrome on prose-500w and
+        # micro-search (2026-11-22, @betteroffice/docx-react 0.5.1): one
+        # .paged-editor__page per page with a 2d <canvas data-page-index>
+        # (816x1056) inside [data-docx-pages-host]; no document text in the
+        # light DOM except the hidden accessibility mirror (opacity 0,
+        # per-glyph spans, 0x0 paragraph boxes).
+        "doc_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        "document_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        "page_selector": "[data-docx-pages-host] .paged-editor__page",
+        "page_model": "page",
+        "edit_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        "usable_signal": "screencast_ink",
+        "ready_js": (
+            "!!(window.__host && window.__host.ready === true && "
+            "document.querySelector('[data-docx-pages-host] canvas[data-page-index]'))"
+        ),
+        # The package's own find dialog, opened by Ctrl/Cmd+F (the toolbar has
+        # no find button); its status line reads "1 of 5 matches".
+        "find_input_selector": "input.docx-find-replace-dialog-input",
+        "find_count_selector": ".docx-find-replace-dialog-status",
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": "the package's own find dialog (Ctrl/Cmd+F), status line .docx-find-replace-dialog-status",
+        "note": (
+            "Canvas host: pages are painted on <canvas data-page-index> inside [data-docx-pages-host]; "
+            "the text is in the editor's worker and is read through the editor ref's readParagraphs. "
+            "C11 uses screencast_ink on the first page canvas. C12 is not applicable: the only DOM "
+            "paragraphs are the hidden accessibility mirror's, whose boxes are 0x0. The ready gate is "
+            "the host page's own flag, set when whenLayoutComplete() resolves "
+            "(harness/ui/betteroffice/main.js)."
+        ),
+    },
     "folio": {
         "doc_selector": ".layout-page-content [data-block-id]",
         "page_selector": "[data-page-number]",
@@ -339,6 +463,39 @@ DOCUMENT_TARGETS = {
             "(816x1056 at 1280px) with one p per source paragraph, static (no caret). The Block-editor mount "
             "(#modeEditor) renders [contenteditable][data-anchor] blocks at docxodus 15.0.0; the edit "
             "adapter enters it and C12 measures the y-shift of the first-screen paragraphs below the caret."
+        ),
+    },
+    "opendoc": {
+        "doc_selector": '#pages .page-wrap[data-page-number="1"] canvas.page',
+        "page_selector": "#pages .page-wrap",
+        "page_model": "page",
+        "edit_selector": '#pages .page-wrap[data-page-number="1"]',
+        "usable_signal": "canvas_pixel",
+        # The editor's own open condition, not the host's ready flag: canvas.page
+        # is mounted only after the document's raster is blitted, in the same
+        # frame body.doc-loaded is set (traced: 320 ms both, __host.ready two
+        # frames later). With __host.ready the canvas_pixel gate took the
+        # document itself as the "empty page" baseline (#185) and never fired.
+        "ready_js": (
+            "!!(document.body && document.body.classList.contains('doc-loaded') && "
+            "document.querySelector('#pages .page-wrap[data-page-number=\"1\"] canvas.page'))"
+        ),
+        "find_input_selector": "#findPanel:not([hidden]) #findInput",
+        "find_count_selector": "#findStatus",
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": (
+            "OpenDoc's own find panel (editor.html #findPanel, editor_find.mjs): Ctrl/Cmd+F opens it; "
+            "#findInput's input listener searches synchronously and writes #findStatus "
+            "(\"1 of 5\", \"5 matches\", \"No match\")"
+        ),
+        "note": (
+            "OpenDoc (harness/ui/opendoc) paints each page into a 2d canvas.page inside "
+            "#pages .page-wrap (the engine's RGBA through putImageData); body text is in the engine, "
+            "read through window.opendoc.ai.read (edit_surface.mjs model 'opendoc'). #a11yDocument is "
+            "an off-page screen-reader mirror, not layout. C11 and C14 use canvas_pixel on page 1's "
+            "canvas, gated on the editor's own open condition (body.doc-loaded). C12 is not applicable "
+            "(r3lanes4 ruling 4): no DOM box is a paragraph."
         ),
     },
     "canvas": {
@@ -1911,9 +2068,15 @@ GATE_SURFACES = {
     "superdoc": {"oracle": "dom", "whole": False},
     "genoffice": {"oracle": "dom", "whole": False},
     "folio": {"oracle": "dom", "whole": False},
+    "reactdocx": {"oracle": "dom", "whole": False},
+    # Read through the SDK's text API, page by page (edit_surface DOCUMENT_TEXT_SURFACES).
+    "nutrient": {"oracle": "model"},
+    "onlyoffice": {"oracle": "model"},
     "eigenpal": {"oracle": "model"},
     "canvas": {"oracle": "model"},
     "docen": {"oracle": "model"},
+    "betteroffice": {"oracle": "model"},
+    "opendoc": {"oracle": "model"},
     "wordcraft": {"oracle": "select_all_copy"},
 }
 
@@ -2206,6 +2369,20 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
             },
         )
     return samples, diagnostics
+
+
+def c12_refusal(editor_id: str, cfg: dict) -> str | None:
+    """Why C12 cannot apply to this host, or None when it runs.
+
+    Wordcraft's reason is the one the lane always gave (#196). A target may also
+    carry its own ``c12_not_applicable`` reason (Nutrient: a viewer, nothing to edit).
+    """
+    if editor_id == "wordcraft":
+        return (
+            "wordcraft exposes no document text or block geometry at this pin "
+            "(one WebGL canvas; correctness is only the modified window-title bullet)"
+        )
+    return cfg.get("c12_not_applicable") or None
 
 
 def _run_find(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, workload_id: str | None = None) -> dict:
@@ -2534,16 +2711,9 @@ def _main() -> int:
 
                 if criterion_id == "C12":
                     fixture = fixtures[specs["C12"]["workload"]]
-                    if editor_id == "wordcraft":
-                        _refuse_cell(
-                            "C12",
-                            fixture,
-                            (
-                                "wordcraft exposes no document text or block geometry at this pin "
-                                "(one WebGL canvas; correctness is only the modified window-title bullet)"
-                            ),
-                            outcome="not_applicable",
-                        )
+                    c12_reason = c12_refusal(editor_id, cfg)
+                    if c12_reason:
+                        _refuse_cell("C12", fixture, c12_reason, outcome="not_applicable")
                         continue
                     env = _env_for(
                         editor_id=editor_id,

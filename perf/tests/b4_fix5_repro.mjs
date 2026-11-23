@@ -2,9 +2,9 @@ import { publishableRecord, refusedRecord } from './witness_records.mjs';
 /**
  * B4 fix round 5 probes (F1, m1–m3). Invoked from test_b4_fix5.py.
  */
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const repo = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const moduleUrl = pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href;
 
 const { measureUndo, runCriteriaSuite } = await import(moduleUrl);

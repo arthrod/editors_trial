@@ -73,6 +73,8 @@ import { openingContentVerdict } from './perf_model_text.mjs';
 import { bindModelSurfaceClock } from './surface_clock.mjs';
 import { hasDocumentTextSurface, readAndGateDocumentText } from './edit_surface.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
+import { editorPage, frameClockOffsetMs } from './editor_frame.mjs';
+import { INSTALL_FIND_PROBE } from './find_probe.mjs';
 import {
   C12_NO_PARAGRAPH_GEOMETRY,
   LIST_MODEL_PARAGRAPHS,
@@ -911,7 +913,8 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
 async function newPage(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
   await routeCorpus(context);
-  const page = await context.newPage();
+  // OnlyOffice's document calls go to its editor frame; every other editor's page is itself.
+  const page = editorPage(await context.newPage(), editorId);
   const trace = await startChromeTrace(browser, page, opt.mode || 'document');
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
@@ -1252,15 +1255,26 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     });
     facts = witnessFacts(finalWitness);
   }
+  // An editor that runs in a frame of its host page (OnlyOffice) is read on the
+  // frame's clock; C11 counts from the host page's navigation, so each page-clock
+  // time below moves to the host page's clock. 0 for every other editor.
+  const originOffset = await frameClockOffsetMs(ctx.page, editorId);
+  const onHostClock = (value) => (typeof value === 'number' && originOffset ? value + originOffset : value);
+  const frameAt = at; // the deltas below are differences on one clock
+  if (originOffset) {
+    at = onHostClock(at);
+    facts = { ...facts, presented_frame_ms: onHostClock(facts.presented_frame_ms) };
+  }
   return {
     mode: 'load',
     driver: 'playwright',
     url,
     navigation_ms: navigationMs,
     ready_ms: readyMs,
-    paints,
-    fcp_ms: fcp,
-    first_element_ms: snap.first_element_ms,
+    frame_clock_offset_ms: originOffset || null,
+    paints: originOffset ? paints.map((row) => ({ ...row, start_ms: onHostClock(row.start_ms) })) : paints,
+    fcp_ms: onHostClock(fcp),
+    first_element_ms: onHostClock(snap.first_element_ms),
     canvas_ink_changed: snap.canvas_ink_changed,
     first_element_info: snap.first_element_info,
     first_element_selector: pageSelector || docSelector,
@@ -1270,7 +1284,7 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     usable_ms: at,
     usable_signal: (surface && surface.signal) || SIGNAL_NAME[usableSignal],
     first_element_delta_from_fcp_ms: fcp !== null && snap.first_element_ms !== null ? snap.first_element_ms - fcp : null,
-    document_text_ms_delta_from_fcp_ms: fcp !== null && at !== null ? at - fcp : null,
+    document_text_ms_delta_from_fcp_ms: fcp !== null && frameAt !== null ? frameAt - fcp : null,
     page_model: pageModel,
     page_count: snap.page_count,
     page_count_at_first: snap.page_count_at_first,
@@ -1633,13 +1647,15 @@ async function runReflow(browser) {
       // never measured from a page box.
       const modelKind = EDIT_SURFACES[editorId] && EDIT_SURFACES[editorId].model;
       const census = await ctx.page.evaluate(
-        ({ modelSrc, model, docSel }) => {
+        async ({ modelSrc, model, docSel }) => {
           let modelParagraphs = null;
           try {
             if (typeof modelSrc === 'string' && modelSrc) {
               // eslint-disable-next-line no-eval
               const list = eval(modelSrc);
-              const paragraphs = list(model);
+              // BetterOffice's and OpenDoc's model reads are async; awaiting
+              // the synchronous canvas/docen lists changes nothing for them.
+              const paragraphs = await list(model);
               modelParagraphs = Array.isArray(paragraphs) ? paragraphs.length : null;
             }
           } catch {
@@ -1654,7 +1670,13 @@ async function runReflow(browser) {
       const container =
         editorId === 'canvas'
           ? '#editor .ce-page-container (host paints into <canvas>)'
-          : 'docen-document shadow .canvas-pages > div (page pitch)';
+          : editorId === 'onlyoffice'
+            ? '#id_viewer in its editor frame (OnlyOffice paints each page into one <canvas>)'
+          : editorId === 'betteroffice'
+            ? '[data-docx-pages-host] .paged-editor__page (host paints into <canvas>; its accessibility mirror\'s .layout-paragraph boxes are 0x0)'
+          : editorId === 'opendoc'
+            ? '#pages .page-wrap (host paints each page into canvas.page)'
+            : 'docen-document shadow .canvas-pages > div (page pitch)';
       return {
         mode: 'reflow',
         status: 'not_applicable',
@@ -2746,96 +2768,26 @@ async function runFind(browser) {
         completion: null,
       };
     }
-    const observedInterval = await frameInterval(ctx.page, { frames: 6 });
+    // The same interval read as the witness clock check (witness.mjs, 60
+    // frames, its default), taken before the query is typed and outside the
+    // timed window. Six frames gave a median of two middle rAF deltas, which
+    // differs between fresh processes at one refresh rate (16.65, 16.673,
+    // 16.607 ms), so _write_measured refused every C15 cell as
+    // frame_interval_inconsistent; the 60-frame median reads 16.7 every time.
+    const observedInterval = await frameInterval(ctx.page);
     await ctx.page.locator(findInputSelector).first().click({ timeout: 5000 });
     await ctx.page.evaluate(
-      ({ countSel, matchSel, expected, query, inputSel }) => {
-        const probe = (window.__findProbe = {
-          first_at: null,
-          complete_at: null,
-          last: '',
-          accepted_text: '',
-          prefix_text: '',
-          prefixTexts: new Set(),
-          scheduling: false,
-          expected: expected,
-          query: query,
-          inputSel: inputSel,
-        });
-        const input = inputSel ? document.querySelector(inputSel) : null;
-        const read = () => {
-          const el = countSel ? document.querySelector(countSel) : null;
-          const text = el ? (el.textContent || '').trim() : '';
-          const matches = matchSel ? document.querySelectorAll(matchSel).length : null;
-          return { text, matches };
-        };
-        const total = (text, matches) => {
-          if (typeof matches === 'number') return matches;
-          const numbers = (text.match(/\d+/g) || []).map(Number);
-          return numbers.length ? Math.max.apply(null, numbers) : null;
-        };
-        // Completion and first-match are the full query's own count text.
-        // A reply scheduled while the input was still a prefix is not that
-        // response, even if it arrives after the input already shows the query.
-        const notePrefix = (text) => {
-          if (!text) return;
-          probe.prefixTexts.add(text);
-          probe.prefix_text = text;
-        };
-        const noteFull = (text) => {
-          if (!text) return;
-          const count = total(text, read().matches);
-          const matchesExpected = probe.expected === null || (count !== null && count === probe.expected);
-          if (!matchesExpected) return;
-          probe.last = text;
-          probe.accepted_text = text;
-          const now = performance.now();
-          if (probe.first_at === null) probe.first_at = now;
-          if (probe.complete_at === null) probe.complete_at = now;
-        };
-        const nativeSetTimeout = window.setTimeout;
-        const origTimeout = nativeSetTimeout.bind(window);
-        // Capture runs before the page's element listener. A microtask queued
-        // there runs before that listener on this input path, so the flag stays
-        // up until bubble. Timers from later tasks are not a search response.
-        const arm = (event) => {
-          if (input && event.target === input) probe.scheduling = true;
-        };
-        const disarm = (event) => {
-          if (!input || event.target !== input) return;
-          const value = input.value;
-          const text = read().text;
-          if (value !== probe.query) notePrefix(text);
-          else if (text && !probe.prefixTexts.has(text)) noteFull(text);
-          probe.scheduling = false;
-        };
-        window.addEventListener('input', arm, true);
-        window.addEventListener('input', disarm, false);
-        window.setTimeout = function (fn, delay) {
-          const extra = Array.prototype.slice.call(arguments, 2);
-          const valueAtSchedule = input && typeof input.value === 'string' ? input.value : '';
-          const fromInput = probe.scheduling === true;
-          if (typeof fn !== 'function') return origTimeout.apply(window, arguments);
-          return origTimeout(function () {
-            const before = read().text;
-            const result = fn.apply(this, extra);
-            const after = read().text;
-            if (!fromInput) return result;
-            if (valueAtSchedule === probe.query) noteFull(after);
-            else if (after && after !== before) notePrefix(after);
-            return result;
-          }, delay);
-        };
-        probe.stop = () => {
-          window.setTimeout = nativeSetTimeout;
-        };
-      },
+      INSTALL_FIND_PROBE,
       {
         countSel: findCountSelector,
         matchSel: findMatchSelector,
         expected: findExpected,
         query: findQuery,
         inputSel: findInputSelector,
+        intervalReplies: editorId === 'onlyoffice',
+        // Gated to BetterOffice (see the timer wrapper): every other host
+        // keeps the reply-inside-the-timer rule it was measured with.
+        lateReply: editorId === 'betteroffice',
       },
     );
     const inputPageMs = await ctx.page.evaluate(() => performance.now());
@@ -2848,6 +2800,7 @@ async function runFind(browser) {
           const probe = window.__findProbe;
           if (!probe) return false;
           if (probe.check) probe.check();
+          if (probe.ambiguous_reply) return true;
           return probe.complete_at !== null && probe.complete_at !== undefined;
         },
         null,
@@ -2863,11 +2816,13 @@ async function runFind(browser) {
         first_match_ms: probe.first_at === null || probe.first_at === undefined ? null : probe.first_at,
         search_complete_ms: probe.complete_at === null || probe.complete_at === undefined ? null : probe.complete_at,
         last_count_text: probe.accepted_text || '',
+        ambiguous_reply: probe.ambiguous_reply === true,
       };
       if (probe.stop) probe.stop();
       return out;
     });
     const delta = (value) => (value === null ? null : value - inputPageMs);
+    if (observed.ambiguous_reply) completion = 'ambiguous_reply';
     const eventCompleted = completion === 'event';
     return {
       mode: 'find',
@@ -2886,7 +2841,11 @@ async function runFind(browser) {
       observed_count_text: observed.last_count_text,
       input_page_ms: inputPageMs,
       page_errors: ctx.errors,
-      reason: eventCompleted ? null : 'find widget did not acknowledge the query on its own event',
+      reason: eventCompleted
+        ? null
+        : completion === 'ambiguous_reply'
+          ? 'a count change arrived while a prefix reply and the full query reply were both pending'
+          : 'find widget did not acknowledge the query on its own event',
     };
   } finally {
     await releaseContext(browser, ctx);

@@ -24,7 +24,9 @@ const errors = [];
 let settle;
 const loaded = new Promise((resolve, reject) => { settle = { resolve, reject }; });
 loaded.catch(() => {});
-window.__host = { ref, loaded, errors };
+window.__host = { ref, loaded, errors, ready: false, error: null };
+// A flag the browser speed lanes (Report E2) can poll: set when `loaded` settles.
+loaded.then(() => { window.__host.ready = true; }, (e) => { window.__host.error = String(e && e.message || e); });
 
 // A document that cannot be fetched is said at once: without this the module stops here,
 // `loaded` never settles, and the probe reports a two-minute timeout instead of the cause.

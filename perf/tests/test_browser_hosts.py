@@ -129,6 +129,36 @@ class BrowserHosts(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'BrowserRun'):
             self.api.start_host('plate', {}, lambda *a: None)
 
+    def test_opendoc_is_served_as_shipped_not_built(self):
+        """OpenDoc's editor is the vendor's static site (harness/ui/opendoc/host.mjs): its host
+        starts the node server with the webapp's path, records both trees' hashes, and never
+        reaches the Vite build that every other static host goes through."""
+        from perf.runner.browser_run import ACTIVE, BrowserRun
+        with tempfile.TemporaryDirectory() as tmp:
+            repos = Path(tmp) / 'repos'
+            (repos / 'opendoc/webapp/pkg').mkdir(parents=True)
+            (repos / 'opendoc/webapp/editor.html').write_text('<p>editor</p>')
+            (repos / 'opendoc/webapp/pkg/casual_doc_wasm_bg.wasm').write_bytes(b'\0asm')
+            host_dir = Path(tmp) / 'host'
+            host_dir.mkdir()
+            (host_dir / 'host.mjs').write_text('// host')
+            target = {'cwd': host_dir, 'repos_root': repos, 'url': 'http://127.0.0.1:5224/',
+                      'command': ['node', 'host.mjs', '--port', '5224']}
+            started = []
+            run = BrowserRun(tmp, 'opendoc', snapshot=lambda: {})
+            for active in (None, run):
+                token = ACTIVE.set(active)
+                try:
+                    self.api.start_host('opendoc', target, lambda editor, t: started.append((editor, t)) or 'proc')
+                finally:
+                    ACTIVE.reset(token)
+            self.assertEqual([editor for editor, _ in started], ['opendoc', 'opendoc'])
+            self.assertEqual(started[0][1]['env']['OPENDOC_WEBAPP'], str((repos / 'opendoc/webapp').resolve()))
+            meta = run.hosts['opendoc']
+            self.assertEqual(meta['tree_sha256'], self.api.tree_hash(repos / 'opendoc/webapp'))
+            self.assertEqual(meta['host_tree_sha256'], self.api.tree_hash(host_dir))
+            self.assertFalse((Path(tmp) / 'builds').exists())
+
     def test_integration_static_headers_and_symlink_escape(self):
         import urllib.error
         with tempfile.TemporaryDirectory() as tmp:

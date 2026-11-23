@@ -6,7 +6,12 @@ from pathlib import Path
 EDITORS = ('plate eigenpal-docx-editor folio genoffice superdoc canvas-editor '
            'canvas-editor-plugin wordcraft docxodus docen office-open office-open-upstream '
            'docs-plus fiduswriter fiduswriter-document-ts fiduswriter-cli-ts '
-           'fiduswriter-pandoc-plugin-ts').split()
+           'fiduswriter-pandoc-plugin-ts opendoc').split()
+# Pinned release trees a later-campaign page serves, fetched (and hash-checked)
+# by the page's own script from the repository root after the clones above
+# (OnlyOffice: the CryptPad editor and x2t, SHA-512; OpenDoc: its engine build
+# for repos/opendoc's pinned commit, SHA-256).
+FETCHES = ('harness/ui/onlyoffice/fetch.py', 'harness/ui/opendoc/fetch_engine.py')
 INSTALLS = {
     'plate': ['pnpm', 'install', '--no-frozen-lockfile', '--ignore-scripts'],
     'eigenpal-docx-editor': ['bun', 'install'], 'folio': ['bun', 'install'],
@@ -15,12 +20,40 @@ INSTALLS = {
     'canvas-editor-plugin': ['pnpm', 'install', '--no-frozen-lockfile'],
     'docen': ['pnpm', 'install', '--frozen-lockfile', '--ignore-scripts'],
 }
+# Report E2's campaigns. A job's global index names its cell (plan.py, --jobs,
+# #185), so the published campaign's editors are frozen here: wiring a new
+# editor into the lanes must never renumber its jobs. Editors added after it
+# are measured in a campaign of their own (Report E2's later section).
+E2_CAMPAIGN_EDITORS = ('plate', 'docxodus', 'superdoc', 'genoffice', 'canvas', 'docen',
+                       'wordcraft', 'eigenpal', 'folio')
+LATER_CAMPAIGN_EDITORS = ('reactdocx', 'betteroffice', 'onlyoffice', 'opendoc', 'nutrient')
+CAMPAIGNS = {'e2': E2_CAMPAIGN_EDITORS, 'later': LATER_CAMPAIGN_EDITORS}
+
+
+def campaign_editors(campaign='e2'):
+    """The publishable editors of one campaign, in BROWSER_TARGETS order.
+
+    Only editors already wired as browser targets are returned, so the later
+    campaign grows as its editors are wired without touching the published one.
+    """
+    if campaign not in CAMPAIGNS:
+        raise ValueError(f'unknown campaign {campaign!r}; known: {sorted(CAMPAIGNS)}')
+    from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
+    from perf.runner.browser_hosts import host_policy
+    members = set(CAMPAIGNS[campaign])
+    return [name for name in BROWSER_TARGETS if name in members and host_policy(name)['publishable']]
+
+
 RUNNERS = ('benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll', 'benchmark_typing')
 NPM = (
     ('superdoc_sdk', 'harness/superdoc-sdk', '@superdoc/sdk'),
     ('docxodus', 'harness/ui/docxodus', 'docxodus'),
     ('docxodus', 'harness/ui/docxodus', '@docxodus/export'),
     ('apryse', 'harness/apryse', '@pdftron/webviewer'),
+    # Report E2's later editors: the installed version must be the published pin.
+    ('reactdocx', 'harness/ui/react-docx', '@extend-ai/react-docx'),
+    ('betteroffice', 'harness/ui/betteroffice', '@betteroffice/docx'),
+    ('betteroffice', 'harness/ui/betteroffice', '@betteroffice/docx-react'),
 )
 
 
@@ -141,6 +174,13 @@ def _block_jobs(editors, seeds, host_class, blocks):
                                  + ['--seed', str(value), *tail, '--block', f'{index}/{blocks}',
                                     SHAKEDOWN_COUNT_FLAG[runner], each]))
     return jobs
+
+
+def declares_dependencies(manifest_text):
+    """True when a package.json lists any dependency an install would fetch."""
+    manifest = json.loads(manifest_text)
+    keys = ('dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies')
+    return any(manifest.get(key) for key in keys)
 
 
 def harness_install(files):

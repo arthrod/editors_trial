@@ -416,6 +416,28 @@ class BrowserRun:
             )
         if repos_modified(self.before, after):
             result.update(outcome='failed', failure_reason='repos_modified', publishable=False)
+        # The served bytes at the end must be the bytes whose hash the run
+        # publishes: a host's tree that changed during the run (or vanished)
+        # blocks publication (CodeRabbit on #283, 2026-11-23).
+        from perf.runner.browser_hosts import host_tree_now
+        changed = []
+        for editor, meta in sorted(self.hosts.items()):
+            if not isinstance(meta, dict) or meta.get('outcome') == 'failed' or not meta.get('tree_sha256'):
+                continue
+            try:
+                now = host_tree_now(editor, meta)
+            except Exception as exc:  # the tree is gone or unreadable
+                now = f'unreadable: {exc}'
+            if now is not None and now != meta['tree_sha256']:
+                meta['tree_sha256_at_finish'] = now
+                changed.append(editor)
+            elif meta.get('tree_sha256_at_restart'):
+                # A restart in the run served other bytes, even if the files
+                # were put back before the end (CodeRabbit on #287).
+                changed.append(editor)
+        if changed:
+            result.update(publishable=False,
+                          publication_block_reason='host_tree_changed_during_run: ' + ', '.join(changed))
         if getattr(self, 'block', None):
             result['block'] = self.block
         if getattr(self, 'shakedown', False):

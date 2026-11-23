@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { quietWindow, noFrameRecord } from './witness_records.mjs';
 
-const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const repo = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const moduleUrl = pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href;
 const { runCriteriaSuite } = await import(moduleUrl);
 const INK_PNG = readFileSync(fileURLToPath(new URL('./fixtures/ink/plate_clip.png', import.meta.url)));
