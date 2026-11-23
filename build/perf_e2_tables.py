@@ -1857,6 +1857,10 @@ def _typing_group_for_seed(roots, editor, kind, seed):
     for root in roots:
         root = Path(root)
         for job in e2_cells._job_roots(root):
+            # A typing job measured again by a later run is read from that run only:
+            # pooling both counted its schedule twice ("n = 6 of 12", 2026-11-23).
+            if e2_cells.job_superseded(job, editor):
+                continue
             summary = e2_cells._load_summary(job) or {}
             if summary.get('seed') not in (None, seed):
                 continue

@@ -93,5 +93,37 @@ class TypingBudget(unittest.TestCase):
                                                  {"budget_exceeded": 2, "typing_sessions_unreachable": 1}))
 
 
+class SupersededTypingJobs(unittest.TestCase):
+    """Later campaign, 2026-11-23: a typing job measured again must not count twice.
+
+    The trial build read BetterOffice's and OnlyOffice's typing cells as
+    "n = 6 of 12": the campaign's job (superseded) and the rerun's job of the
+    same index were both pooled, so the replaced job's schedule and its
+    run-policy block came back with it.
+    """
+
+    def _job(self, base, run_id, index, seed, editor="betteroffice"):
+        job = base / "benchmark_typing" / ("%s-%d" % (run_id, index))
+        job.mkdir(parents=True)
+        summary = T._summary(job, run_id=run_id, seed=seed, editors=[editor], reps=6)
+        summary.update(runner="benchmark_typing", session_kind="throughput")
+        (job / "summary.json").write_text(json.dumps(summary))
+        (job / "cells").mkdir()
+        return job
+
+    def test_the_superseded_campaign_job_is_left_out_of_the_seed_group(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            camp, rerun = Path(tmp) / "camp", Path(tmp) / "rerun"
+            self._job(camp, "camprun", 48, 1)
+            self._job(rerun, "rerunrun", 48, 1)
+            from perf.analysis import e2_cells
+            entry = {"editor": "betteroffice", "jobs": [48], "kept_runs": ["rerunrun"]}
+            with e2_cells.superseded_cells([entry]):
+                group = E2._typing_group_for_seed([camp, rerun], "betteroffice", "throughput", 1)
+            self.assertEqual(group["scheduled"], 6)
+            without = E2._typing_group_for_seed([camp, rerun], "betteroffice", "throughput", 1)
+            self.assertEqual(without["scheduled"], 12)
+
+
 if __name__ == "__main__":
     unittest.main()
