@@ -156,7 +156,8 @@ and Nutrient was not read for any report.
     - [x] Vendor notes and Report C §2.19 cite the later figures; react-docx's "not measured" and Nutrient's "in no other" gone (bfbc8b9; Codex checked every figure)
     - [x] `verify_publication.sh --with-word` passes twice (2026-11-23, on e2/review-fixes 105a625: 8/8 both times, Word opened every deliverable; an earlier pair that ran on main by mistake is void, see RERUNS). Again after Gitar's review fixes: 8/8 on 5326618 and on 89809ff (CHANGELOG lines only), Word opened every deliverable
     - [x] Gitar's 7 review comments (#283-#286): 5 fixed (47c84bf typing brief compared by SHA-256; 62622dd; 0d9bb76; 3aaeab9; 273a484), 1 fixed with the marker pushed back, 1 pushed back; each answered in its thread
-    - [ ] CodeRabbit's 20 and CodeAnt's 9 comments (#283, #285) gated one by one, each answered; any that touches a recorded figure goes to the owner before merging
+    - [x] CodeRabbit's 20 and CodeAnt's 9 comments (#283, #285) gated one by one, each answered; any that touches a recorded figure goes to the owner before merging (2026-11-23: 16 fixed with a test red before and green after, 7894c6c..9e5e314; 7 pushed back; 6 duplicates linked; 29/29 replied. Only CodeAnt's C10 walk moved a figure: owner chose fix and re-measure)
+    - [ ] react-docx's C10 re-measured with the walk outside the timed window (all five documents x 2 seeds, react-docx only; jobs 032-041 and 104-113 on e2-plate and e2-publish since 16:20 UTC), old cells superseded and disclosed in Appendix K and the CHANGELOG
     - [ ] Stacked PRs, release, deploy, seen live in Chrome
 - [x] 8.2 What the figures can and cannot tell
 
