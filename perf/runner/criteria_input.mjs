@@ -331,11 +331,13 @@ export function caretOverlapsLine(caret, line) {
  * (RECORD_CLICK_SCROLL): its delta and the number of scroll events seen on the
  * clicked line's scrollers and the window. The second read waits one frame,
  * so a scroll made during the read has dispatched its event. `stable` is true
- * only when both reads agree (both absent, or deltas within half a pixel and
- * no scroll event in between): then the caret and the delta describe the same
- * viewport. A scroll away and back during the read leaves the deltas equal but
- * counts its events, so it is unstable (CodeRabbit on #287). `scrolled` is the
- * later delta.
+ * only when both reads agree: deltas within half a pixel and no scroll event
+ * in between, so no scroll was seen during the caret read. A scroll away and
+ * back during the read leaves the deltas equal but counts its events, so it is
+ * unstable (CodeRabbit on #287). When both reads are absent (the recorder is
+ * not on the page) the scroll is unknown, not known to be still: `stable` is
+ * true only so that the click gets the old verdict, which does not use a delta.
+ * `scrolled` is the later delta.
  */
 export async function readStateWithClickScroll(page, readState) {
   const read = (settle) =>
