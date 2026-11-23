@@ -100,10 +100,14 @@ def test_the_report_comes_first_and_every_detail_is_in_a_lettered_appendix():
     assert all(h.startswith('Appendix ') for h in after), after
     letters = [h.split()[1] for h in after]
     assert letters == [chr(ord('A') + i) for i in range(len(after))]
-    # Method placeholders (rule, host, reruns, full tables) are appendix material.
+    # Method placeholders (rule, host, reruns, full tables) are appendix material. The
+    # later campaign's section (v0.11.0) gets the same: its lead, its editors and its
+    # short version in the report; its method, runs and tables in Appendix K.
     report = template[:first_appendix]
     for placeholder in re.findall(r'\{\{([^}]+)\}\}', report):
-        assert placeholder in ('perf.e2.status', 'perf.e2.short_version'), placeholder
+        assert placeholder in ('perf.e2.status', 'perf.e2.short_version', 'perf.e2.later.lead',
+                               'perf.e2.later.editors', 'perf.e2.later.unmeasured',
+                               'perf.e2.later.short_version'), placeholder
 
 
 def test_that_everything_was_run_twice_is_left_to_the_appendix():

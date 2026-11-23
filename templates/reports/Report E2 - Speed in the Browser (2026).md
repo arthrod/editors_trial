@@ -8,7 +8,7 @@ Nine editors that open Word documents in a web browser were each given the same 
 
 It is written to be read from here to the end of the results. The appendices after that hold everything needed to check it: how each time was taken, the machine, the rule a figure had to pass before it was printed, the full tables, what was not measured and why, and how to run it again.
 
-**The editors added to the trial in v0.11.0 are measured by a separate campaign.** {{perf.e2.later.lead}} The results and the appendices are the earlier campaign's, unchanged, for the nine editors it covered. OpenDoc, BetterOffice and OnlyOffice are also timed without a browser in Report E. The measurements on editors.benchmarks.law of how the new tools load on a page use a different method and are not comparable with any table of this report.
+**The editors added to the trial in v0.11.0 are measured by a separate campaign.** {{perf.e2.later.lead}} The results above that section and Appendices A to J are the earlier campaign's, unchanged, for the nine editors it covered; Appendix K is the later campaign's. OpenDoc, BetterOffice and OnlyOffice are also timed without a browser in Report E. The measurements on editors.benchmarks.law of how the new tools load on a page use a different method and are not comparable with any table of this report.
 
 ## How to read the tables
 
@@ -18,7 +18,7 @@ It is written to be read from here to the end of the results. The appendices aft
 - **"under 17 ms"** means the first picture of the screen that showed the change came less than one redraw after the action. The screen was redrawn 60 times a second, once every 16.7 ms, so times shorter than that cannot be told apart from each other.
 - **A range, such as "48 ms to 81 ms",** is printed where the repeated measurements disagreed too much to print one figure; its ends are what they gave. Neither end is the editor's time; read it as "somewhere about here, and not settled".
 - **"not measured"** means our tooling did not time the action there. It says nothing about whether the editor does it, or how quickly. **"crashed"** means the editor's page crashed in every launch of that test at that size; it says nothing about the other tests. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. **"does not apply"** is printed only where there was nothing to measure. A dash means the cell was not part of these runs.
-- **Every cell that is not a single figure has a line in Appendix J** saying what was measured there and why no single figure is printed.
+- **Every cell that is not a single figure has a line in Appendix J** saying what was measured there and why no single figure is printed; for the section "The editors measured later", the line is in Appendix K.
 - **The editors are in alphabetical order.** This report does not rank them.
 
 ## What the figures cannot tell you
@@ -37,102 +37,12 @@ It is written to be read from here to the end of the results. The appendices aft
 
 ## The editors measured later
 
-{{perf.e2.later.editors}} were added to the trial in v0.11.0, after the campaign above was measured. They are measured by a separate campaign of their own, on the same machine type, with the same lanes, documents and two seeds; the report's build refuses a later campaign that differs in any of these.{{perf.e2.later.unmeasured}}
+{{perf.e2.later.editors}} were added to the trial in v0.11.0, after the campaign above was measured. They are measured by a separate campaign of their own, on the same machine type, with the same lanes and documents, run the same way; the report's build refuses a later campaign that differs in any of these.{{perf.e2.later.unmeasured}}
 
-Read these tables beside the results above with that in mind. They come from other days and other virtual machines of the same type, so a small difference between one of these figures and one above can be the machine and not the editor. {{perf.e2.later.comparison}} The rule a figure had to pass is the one in Appendix C, and each time is taken as Appendices A and D describe, with these differences:
-
-- **Autocorrect switched off for OnlyOffice and OpenDoc.** Their measured pages switch sentence auto-capitalisation off. With their default, the typed "v." becomes "V.", and the typing check, which compares the whole typed text, fails. OnlyOffice's page also switches off its replacement of hyphens with dashes: its default turns the typed "Toledo -Flores" into "Toledo –Flores", a hyphen Word leaves alone. OpenDoc's page also switches off automatic lists: like Word, it turns a typed "1. " at the start of a paragraph into list numbering, and its reader reports that the paragraph is a list but not the number it paints, so the check cannot credit the typed "1.". OpenDoc's page also switches off its replace-text-as-you-type table, which turns a typed lone "i" into "I" ("Pet. i, 5-6" becomes "Pet. I, 5-6"), a case change the check counts as a mismatch; as when a user switches that table off, OpenDoc's dash replacement goes off with it. A user can switch each of these off in the editor's AutoCorrect settings; nothing else about either editor changes.
-- **Nutrient is a viewer.** Typing, the input lane and the edit burst do not apply to it. Its SDK is loaded from Nutrient's CDN on each cold load, so its load figures include that fetch and are not like-for-like with the editors served from the measuring machine.
-- **C07 and the click's own scroll.** When the click itself scrolls the page, C07 now judges the caret against where the clicked line ends up after that scroll, and only there. The campaign above was measured before this rule and did not record the click's scroll, so its C07 figures were judged against the line's place before the click.
-- **OnlyOffice's scrolling.** {{perf.e2.later.c10_onlyoffice}}
-
-{{perf.e2.later.intro}}
+Read these figures beside the results above with that in mind. They come from other days and other virtual machines of the same type, so a small difference between one of these figures and one above can be the machine and not the editor. OnlyOffice's and OpenDoc's measured pages switch off some of their autocorrect settings, and Nutrient is a viewer whose SDK is loaded from its own CDN: Appendix K lists every way this campaign differs, with its machine, its runs and its full tables.
 
 {{perf.e2.later.short_version}}
 
-### The machine and the runs
-
-{{perf.e2.later.relaxed_bounds}}
-
-{{perf.e2.later.host_note}}
-
-{{perf.e2.later.runs}}
-
-### The full tables
-
-#### First visible content (C03)
-
-{{perf.e2.later.table.C03}}
-
-#### Deferred work (C04)
-
-{{perf.e2.later.table.C04}}
-
-#### Single-edit responsiveness (C05)
-
-{{perf.e2.later.table.C05}}
-
-#### Sustained typing (C06)
-
-{{perf.e2.later.table.C06}}
-
-#### Cursor and selection (C07)
-
-{{perf.e2.later.table.C07}}
-
-#### Clipboard and bulk editing (C08)
-
-{{perf.e2.later.table.C08}}
-
-#### Undo and redo (C09)
-
-{{perf.e2.later.table.C09}}
-
-#### Scrolling (C10)
-
-{{perf.e2.later.table.C10}}
-
-#### Initial layout (C11)
-
-{{perf.e2.later.table.C11}}
-
-#### Incremental reflow (C12)
-
-{{perf.e2.later.table.C12}}
-
-#### Global invalidation (C13)
-
-{{perf.e2.later.table.C13}}
-
-#### Large-document scaling (C14)
-
-{{perf.e2.later.table.C14}}
-
-#### Search and replace (C15)
-
-{{perf.e2.later.table.C15}}
-
-#### Memory by phase (C17)
-
-{{perf.e2.later.table.C17}}
-
-#### Resources while opening and editing (B8)
-
-{{perf.e2.later.table.B8}}
-
-#### Typing marathon (B9)
-
-{{perf.e2.later.table.TYPING}}
-
-### Cells whose two rounds did not agree
-
-{{perf.e2.later.not_reproduced}}
-
-### Every results cell that is not a single figure, and why
-
-One line for every cell of this section's results tables that is not a single figure, with the reasons each launch recorded, as in Appendix J.
-
-{{perf.e2.later.no_figure}}
 
 ## Appendix A — What was measured, and how each time was taken
 
@@ -310,7 +220,7 @@ Throughput sessions publish chars/s and resources. Latency sessions publish load
 
 {{perf.e2.not_run}}
 
-{{perf.e2.later.scope}} are not listed here: they are not part of the campaign this appendix describes. A campaign of their own measures them, and the section "The editors measured later" gives its tables and names any of them it has no data for.
+{{perf.e2.later.scope}} are not listed here: they are not part of the campaign this appendix describes. A campaign of their own measures them: the section "The editors measured later" gives its results and names any of them it has no data for, and Appendix K its full tables.
 
 ## Appendix G — Cells whose two rounds did not agree
 
@@ -329,3 +239,98 @@ Throughput sessions publish chars/s and resources. Latency sessions publish load
 The results at the top print a single figure only where two rounds of measurement agreed. This appendix has one line for every other cell of those tables that was part of these runs: {{perf.e2.no_figure.rows}} cells, of which {{perf.e2.no_figure.ranges}} print a range, {{perf.e2.no_figure.not_measured}} "not measured", {{perf.e2.no_figure.no_figure}} "no figure", {{perf.e2.no_figure.crashed}} "crashed", {{perf.e2.no_figure.varied}} "varied" (the measurements disagreed and their figures were not kept) and {{perf.e2.no_figure.does_not_apply}} "does not apply". A launch is one fresh start of the browser; a round has ten. A launch is kept when the harness confirmed the action and saw its result on screen, and refused otherwise; a round needs five kept launches. The reasons are the ones each launch recorded.
 
 {{perf.e2.no_figure}}
+
+## Appendix K — The editors measured later: what differs, the machine, the runs and the full tables
+
+This appendix is the later campaign's own, for the editors in the section "The editors measured later". {{perf.e2.later.comparison}} The rule a figure had to pass is the one in Appendix C, and each time is taken as Appendices A and D describe, with these differences:
+
+- **Autocorrect switched off for OnlyOffice and OpenDoc.** Their measured pages switch sentence auto-capitalisation off. With their default, the typed "v." becomes "V.", and the typing check, which compares the whole typed text, fails. OnlyOffice's page also switches off its replacement of hyphens with dashes: its default turns the typed "Toledo -Flores" into "Toledo –Flores", a hyphen Word leaves alone. OpenDoc's page also switches off automatic lists: like Word, it turns a typed "1. " at the start of a paragraph into list numbering, and its reader reports that the paragraph is a list but not the number it paints, so the check cannot credit the typed "1.". OpenDoc's page also switches off its replace-text-as-you-type table, which turns a typed lone "i" into "I" ("Pet. i, 5-6" becomes "Pet. I, 5-6"), a case change the check counts as a mismatch; as when a user switches that table off, OpenDoc's dash replacement goes off with it. A user can switch each of these off in the editor's AutoCorrect settings; nothing else about either editor changes.
+- **Nutrient is a viewer.** Typing, the input lane and the edit burst do not apply to it. Its SDK is loaded from Nutrient's CDN on each cold load, so its load figures include that fetch and are not like-for-like with the editors served from the measuring machine.
+- **C07 and the click's own scroll.** When the click itself scrolls the page, C07 now judges the caret against where the clicked line ends up after that scroll, and only there. The campaign above was measured before this rule and did not record the click's scroll, so its C07 figures were judged against the line's place before the click.
+- **OnlyOffice's scrolling.** {{perf.e2.later.c10_onlyoffice}}
+
+{{perf.e2.later.intro}}
+
+### The machine and the runs
+
+{{perf.e2.later.relaxed_bounds}}
+
+{{perf.e2.later.host_note}}
+
+{{perf.e2.later.runs}}
+
+### The full tables
+
+#### First visible content (C03)
+
+{{perf.e2.later.table.C03}}
+
+#### Deferred work (C04)
+
+{{perf.e2.later.table.C04}}
+
+#### Single-edit responsiveness (C05)
+
+{{perf.e2.later.table.C05}}
+
+#### Sustained typing (C06)
+
+{{perf.e2.later.table.C06}}
+
+#### Cursor and selection (C07)
+
+{{perf.e2.later.table.C07}}
+
+#### Clipboard and bulk editing (C08)
+
+{{perf.e2.later.table.C08}}
+
+#### Undo and redo (C09)
+
+{{perf.e2.later.table.C09}}
+
+#### Scrolling (C10)
+
+{{perf.e2.later.table.C10}}
+
+#### Initial layout (C11)
+
+{{perf.e2.later.table.C11}}
+
+#### Incremental reflow (C12)
+
+{{perf.e2.later.table.C12}}
+
+#### Global invalidation (C13)
+
+{{perf.e2.later.table.C13}}
+
+#### Large-document scaling (C14)
+
+{{perf.e2.later.table.C14}}
+
+#### Search and replace (C15)
+
+{{perf.e2.later.table.C15}}
+
+#### Memory by phase (C17)
+
+{{perf.e2.later.table.C17}}
+
+#### Resources while opening and editing (B8)
+
+{{perf.e2.later.table.B8}}
+
+#### Typing marathon (B9)
+
+{{perf.e2.later.table.TYPING}}
+
+### Cells whose two rounds did not agree
+
+{{perf.e2.later.not_reproduced}}
+
+### Every results cell that is not a single figure, and why
+
+One line for every cell of the results in the section "The editors measured later" that is not a single figure, with the reasons each launch recorded, as in Appendix J.
+
+{{perf.e2.later.no_figure}}

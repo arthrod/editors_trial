@@ -201,7 +201,7 @@ class LaterFacts(unittest.TestCase):
         self.assertEqual(unset["perf.e2.later.relaxed_bounds"], "Relaxed bounds: built now.")
         self.assertEqual(out["perf.e2.relaxed_bounds"], "Relaxed bounds: the published campaign's own text.")
         text = render_reports.reportgen.render(TEMPLATE.read_text(encoding="utf-8"), out)
-        section = text[text.index("## The editors measured later"):text.index("## Appendix A")]
+        section = text[text.index("## Appendix K"):]
         self.assertIn("Relaxed bounds: built now.", section)
 
     def test_an_editor_in_both_campaigns_is_refused(self):

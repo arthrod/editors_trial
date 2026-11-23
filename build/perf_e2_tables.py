@@ -1666,7 +1666,7 @@ def later_unset_facts() -> dict:
         LATER + "lead": (
             "%s are timed in the browser by a campaign of their own, on the same machine type and with the same "
             "lanes and documents. That campaign is not yet measured; the section %s, after the results, says so "
-            "and is where its tables go." % (names, LATER_SECTION)),
+            "and is where its results go, with the rest in Appendix K." % (names, LATER_SECTION)),
         LATER + "comparison": "The later campaign is not yet measured, so it has not been compared with the campaign above.",
         LATER + "c10_onlyoffice": (
             "OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its "
@@ -1777,8 +1777,8 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
         LATER + "dates": dates,
         LATER + "lead": (
             "%s were timed in the browser by a campaign of their own, %s, on the same machine type and with the "
-            "same lanes, documents and seeds. Their tables are in the section %s, after the results; their figures are not "
-            "in the results or the appendices." % (names, when, LATER_SECTION)),
+            "same lanes and documents. Their results are in the section %s, after the results, and the rest in "
+            "Appendix K; their figures are not in the results or the other appendices." % (names, when, LATER_SECTION)),
         LATER + "comparison": comparison,
         LATER + "c10_onlyoffice": c10,
     })
