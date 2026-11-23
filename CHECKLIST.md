@@ -154,7 +154,7 @@ and Nutrient was not read for any report.
     - [x] `later` entry added to `out/report_e2_runs.json`, facts rebuilt with the carry, report re-rendered (2026-11-23; outside `perf.e2.later.*` only `ver.cdn.nutrient` differs from v0.12.0's facts)
     - [x] Read back in full: a viewer's cells say "does not apply" (f781b87, afe31b2); react-docx's mismatch cells say so; jobs replaced whole by reruns are not counted (152 jobs, 76 per seed: 622f231, 72a433c); Space note says "this campaign" (83234c3)
     - [x] Vendor notes and Report C §2.19 cite the later figures; react-docx's "not measured" and Nutrient's "in no other" gone (bfbc8b9; Codex checked every figure)
-    - [ ] `verify_publication.sh --with-word` passes twice
+    - [x] `verify_publication.sh --with-word` passes twice (2026-11-23, on e2/review-fixes 105a625: 8/8 both times, Word opened every deliverable; an earlier pair that ran on main by mistake is void, see RERUNS)
     - [ ] Stacked PRs, release, deploy, seen live in Chrome
 - [x] 8.2 What the figures can and cannot tell
 
