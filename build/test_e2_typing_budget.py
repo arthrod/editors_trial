@@ -135,5 +135,52 @@ class SupersededTypingJobs(unittest.TestCase):
                 E2._typing_group_for_seed([base], "betteroffice", "throughput", 1)
 
 
+class TypingMismatch(unittest.TestCase):
+    """react-docx, later campaign: every session typed all its keys but the text read back differed.
+
+    It drops the first key after each Enter (checklist 8.1.1), so the check
+    refuses the session (failure_reason ``text_mismatch``) at the same
+    character every time, and after two the job stops trying. The table said
+    "not enough sessions or run blocked (insufficient_typing_sessions)"; it
+    now names the mismatch and where it starts.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _write(self, rep, **kw):
+        root = self.root / "seed1"
+        root.mkdir(exist_ok=True)
+        (root / "summary.json").write_text(json.dumps({"seed": 1}))
+        row = dict(outcome="refused", refusal_code="correctness_failure", failure_reason="text_mismatch",
+                   session_kind="throughput", characters_typed=81225, first_divergence_offset=23)
+        row.update(kw)
+        T._write_trial(root, rep, "reactdocx", "TYPING", **row)
+        return [root]
+
+    def test_mismatch_sessions_name_the_mismatch_and_where_it_starts(self):
+        self._write(0)
+        self._write(1)
+        for rep in range(2, 6):
+            roots = self._write(rep, outcome="not_run", refusal_code="not_run",
+                                failure_reason="typing_sessions_unreachable", characters_typed=None,
+                                first_divergence_offset=None)
+        text = E2._typing_mismatch_text(roots, "reactdocx", "throughput", 1,
+                                        {"text_mismatch": 2, "typing_sessions_unreachable": 4})
+        self.assertEqual(
+            text, "the typed text did not match: 2 sessions typed 81,225 characters each, and the text "
+                  "read back first differs from it after 23 characters of the compared text (spaces collapsed, "
+                  "quotes folded, list markers set aside); the other 4 were not tried")
+
+    def test_another_refusal_beside_a_mismatch_keeps_the_usual_explanation(self):
+        roots = self._write(0)
+        self.assertIsNone(E2._typing_mismatch_text(roots, "reactdocx", "throughput", 1,
+                                                   {"text_mismatch": 1, "crash": 1}))
+
+
 if __name__ == "__main__":
     unittest.main()

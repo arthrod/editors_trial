@@ -1964,6 +1964,61 @@ def _typing_budget_text(roots, editor, kind, seed, refusals=None):
     return text
 
 
+def _typing_mismatch_text(roots, editor, kind, seed, refusals):
+    """"the typed text did not match" when every session tried was refused for it, else None.
+
+    react-docx, later campaign: it drops the first key after each Enter
+    (checklist 8.1.1), so every session typed all its keys and the check
+    refused the text read back at the same place. The cell names that instead
+    of "not enough sessions or run blocked (insufficient_typing_sessions)".
+    """
+    tally = dict(refusals or {})
+    if not tally.get('text_mismatch') or set(tally) - {'text_mismatch', _TYPING_NOT_TRIED}:
+        return None
+    refused, untried = [], 0
+    for root in roots:
+        for _, path, row in e2_cells._iter_attempt_rows(Path(root)):
+            if (row.get('editor_id') != editor or row.get('criterion_id') != 'TYPING'
+                    or row.get('session_kind') != kind
+                    or (e2_cells._load_summary(Path(path).parents[3]) or {}).get('seed') != seed):
+                continue
+            why = row.get('failure_reason')
+            if row.get('outcome') == 'not_run' and why == _TYPING_NOT_TRIED:
+                untried += 1
+            elif why == 'text_mismatch':
+                refused.append(row)
+            else:
+                return None
+    if (len(refused), untried) != (tally.get('text_mismatch', 0), tally.get(_TYPING_NOT_TRIED, 0)):
+        return None
+
+    def _counts(values):
+        values = [v for v in values if isinstance(v, int) and not isinstance(v, bool)]
+        if len(values) != len(refused):
+            return None
+        listed = sorted({f'{v:,}' for v in values}, key=lambda t: int(t.replace(',', '')))
+        return listed
+
+    typed = _counts([row.get('characters_typed') for row in refused])
+    offsets = _counts([row.get('first_divergence_offset') for row in refused])
+    n = len(refused)
+    text = 'the typed text did not match: %d session%s' % (n, '' if n == 1 else 's')
+    if typed:
+        text += ' typed %s characters%s' % (' or '.join(typed), ' each' if n > 1 and len(typed) == 1 else '')
+        text += ', and the text read back'
+    else:
+        text += ' read back text that'
+    text += ' first differs from it' if typed else ' first differs from the typed text'
+    if offsets:
+        # The check compares normalized text (perf/runner/benchmark_typing.py):
+        # the offset counts characters of that, not of the raw text (Codex, 2026-11-23).
+        text += (' after %s characters of the compared text (spaces collapsed, quotes folded, '
+                 'list markers set aside)' % ' or '.join(offsets))
+    if untried:
+        text += '; the other %d %s not tried' % (untried, 'was' if untried == 1 else 'were')
+    return text
+
+
 def _typing_facts_group(group, fields, *, published: bool = False):
     if published:
         return {**group, "kept": [{name: row[name] for name in fields if name in row} for row in group["kept"]]}
@@ -2032,6 +2087,8 @@ def typing_table(facts, roots, editor, kind):
                 )
             elif kept_n == 0 and (budget := _typing_budget_text(roots, editor, kind, group.get('seed'), group['refusals'])):
                 reasons.append(f"{name}: {budget}")
+            elif kept_n == 0 and (mismatch := _typing_mismatch_text(roots, editor, kind, group.get('seed'), group['refusals'])):
+                reasons.append(f"{name}: {mismatch}")
             else:
                 reasons.append(
                     f"{name}: not enough sessions or run blocked (n = {kept_n} of {scheduled}; "
