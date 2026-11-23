@@ -249,9 +249,9 @@ From a scroll of the document until the first frame in which its content has mov
 | Nutrient | 39 ms | 45 ms | 50 ms | 56 ms |
 | OnlyOffice (CryptPad build) | 41 ms | 29 ms | 29 ms | 41 ms |
 | OpenDoc | 15 ms | 22 ms | 22 ms | 32 ms |
-| react-docx | under 17 ms | under 17 ms | 26 ms | 121 ms |
+| react-docx | under 17 ms | under 17 ms | 23 ms | 63 ms |
 
-At 500 words, 5 of 5 editors have a figure, from under 17 ms to 41 ms; at 250,000 words, 5 of 5, from 25 ms to 121 ms.
+At 500 words, 5 of 5 editors have a figure, from under 17 ms to 41 ms; at 250,000 words, 5 of 5, from 25 ms to 63 ms.
 
 ### Memory with the document open
 
@@ -1837,8 +1837,9 @@ This appendix is the later campaign's own, for the editors in the section "The e
 - **Nutrient is a viewer.** Typing, the input lane and the edit burst do not apply to it. Its SDK is loaded from Nutrient's CDN on each cold load, so its load figures include that fetch and are not like-for-like with the editors served from the measuring machine.
 - **C07 and the click's own scroll.** When the click itself scrolls the page, C07 now judges the caret against where the clicked line ends up after that scroll, and only there. The campaign above was measured before this rule and did not record the click's scroll, so its C07 figures were judged against the line's place before the click.
 - **OnlyOffice's scrolling.** OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its C10 (scrolling) is measured from canvas pixels. The scroll is one wheel notch over the page, which OnlyOffice turns into a 45 px step whatever the wheel's size; every other editor's C10 scrolls its page by 600 px. The time ends at the first frame that changes, and that frame must show the picture before the scroll moved up by it, or the sample is refused.
+- **react-docx's scrolling, measured again.** To check that the page really scrolled, the scroll lane reads which part of the document is in view. On react-docx's page, whose paragraphs sit inside wrappers that take no space of their own (`display: contents`), that read walks through the wrappers, and a code review found it ran inside the timed interval, between the scroll and the first frame. On our computer it took 13 to 15 ms of a 30 to 42 ms sample on the 250,000-word document, and 2 to 3 ms on the 50,000-word one: time that was the harness's, not react-docx's. The read now runs after the frame is seen. react-docx's scrolling was measured again on all five documents and both seeds, react-docx alone, and those jobs replace the first ones whole. In the full table its C10 median went from 116.8 ms to 61.5 ms on the 250,000-word document, from 26.8 ms to 21.9 ms on the 50,000-word one, and from 17.9 ms to under one frame on the complex document; on the 500- and 5,000-word documents it stays under one frame. The other editors' pages have no such wrappers: on our computer the same read took under 0.3 ms for BetterOffice and OpenDoc on the 250,000-word document, so their figures stand.
 
-333 of 560 scheduled editor/criterion/measure cells reproduced between the two seeds. 18 run folders contributed 152 jobs (seed 1: 76 jobs; seed 2: 76 jobs); earliest job start 2026-11-22, latest job end 2026-11-23.
+333 of 560 scheduled editor/criterion/measure cells reproduced between the two seeds. 20 run folders contributed 172 jobs (seed 1: 86 jobs; seed 2: 86 jobs); earliest job start 2026-11-22, latest job end 2026-11-23.
 
 ### The machine and the runs
 
@@ -1846,13 +1847,13 @@ Relaxed bounds: Clock skew: 5 ms. Ready/navigation load timeouts: 300 s by defau
 
 Each seed ran on the same hardware class (shared_guarded) on separate virtual machines (Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc), not on one host. A Space name is a machine name: the editors measured are those in the tables. Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-superdoc are machines named for editors this campaign does not measure.
 
-Seed 1 — 76 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (54 jobs), linux 6.12.115-140.210.amzn2023.x86_64 (22 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 0 of 1710 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 2.1 to 20.9, median 10.2.
+Seed 1 — 86 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (54 jobs), linux 6.12.115-140.210.amzn2023.x86_64 (32 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 0 of 1760 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 2.1 to 21.9, median 10.6.
 
-Seed 2 — 76 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (56 jobs), linux 6.12.115-140.210.amzn2023.x86_64 (20 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 0 of 1710 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 1.8 to 20.7, median 8.3.
+Seed 2 — 86 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (56 jobs), linux 6.12.115-140.210.amzn2023.x86_64 (30 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 0 of 1760 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 1.8 to 21.5, median 9.8.
 
 Editor pins (built-editor tree SHA-256 of every attempt that ran, in every run folder): BetterOffice: 05b0f162a22bf0a56f5769b04706f1534d3f36829df00675061f31e1d712e165; Nutrient: 9b95e5f587853cf87160f045bec935c2df6a048cf5c5c6ff5e23bec045a2ab86; OnlyOffice (CryptPad build): 3ab539c4b0552425585496c7fcceec6e201cf8ca426f18358c000910cdea145d, c1207eabd47041c86041b58d9bf2166be2beaa772f355b9d8c72dd7923f1d8d9; OpenDoc: 78bb78b33855c135faba0544f5fd6026cc71ee3de5b144b046829fab11d5bca0; react-docx: bac2b64c9e8b89efc9c26ce3057fe3f4b2759dcc86fd12440760a7c4fc00267b. OnlyOffice (CryptPad build)'s re-measured cells (jobs 46, 47, 118, 119) ran on built-editor tree c1207eabd47041c86041b58d9bf2166be2beaa772f355b9d8c72dd7923f1d8d9; its cells not re-measured, on 3ab539c4b0552425585496c7fcceec6e201cf8ca426f18358c000910cdea145d: its measured page differs by one line, hyphens-with-dash off (owner's decision, disclosed above), which is built into OnlyOffice's host tree; the vendor editor (CryptPad's build) is the same.
 
-152 jobs in 18 run folders — seed 1: 76 jobs; seed 2: 76 jobs. Dates: 2026-11-22 to 2026-11-23.
+172 jobs in 20 run folders — seed 1: 86 jobs; seed 2: 86 jobs. Dates: 2026-11-22 to 2026-11-23.
 
 ### The full tables
 
@@ -2149,27 +2150,27 @@ Editor pins (built-editor tree SHA-256 of every attempt that ran, in every run f
 | Nutrient | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no scroll container: 333 element(s) inspected, open shadow roots searched: html > body > div#viewer > div.PSPDFKit-Container; 40 element(s) with a scroll range…. |
 | OnlyOffice (CryptPad build) | complex-corpus | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: the probe produced no sample. |
 | OpenDoc | complex-corpus | 29.0 ms; 0% sub-frame launches; p90 33.5 ms; n = 10 of 10 |
-| react-docx | complex-corpus | 17.9 ms; 30% sub-frame launches; p90 19.8 ms; n = 10 of 10 |
+| react-docx | complex-corpus | < 1 frame (16.7 ms); 60% sub-frame launches; p90 18.4 ms; n = 10 of 10 |
 | BetterOffice | prose-250kw | 22.0 ms; 20% sub-frame launches; p90 28.7 ms; n = 10 of 10 |
 | Nutrient | prose-250kw | 53.0 ms; 0% sub-frame launches; p90 70.3 ms; n = 10 of 10 |
 | OnlyOffice (CryptPad build) | prose-250kw | 49.0 ms; 20% sub-frame launches; p90 49.3 ms; n = 10 of 10 |
 | OpenDoc | prose-250kw | 29.3 ms; 0% sub-frame launches; p90 35.7 ms; n = 10 of 10 |
-| react-docx | prose-250kw | 116.8 ms; 0% sub-frame launches; p90 130.9 ms; n = 10 of 10 |
+| react-docx | prose-250kw | 61.5 ms; 0% sub-frame launches; p90 76.2 ms; n = 10 of 10 |
 | BetterOffice | prose-500w | < 1 frame (16.7 ms); 50% sub-frame launches; p90 20.6 ms; n = 10 of 10 |
 | Nutrient | prose-500w | 40.0 ms; 0% sub-frame launches; p90 48.8 ms; n = 10 of 10 |
 | OnlyOffice (CryptPad build) | prose-500w | 48.8 ms; 10% sub-frame launches; p90 49.4 ms; n = 10 of 10 |
 | OpenDoc | prose-500w | < 1 frame (16.7 ms); 90% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
-| react-docx | prose-500w | < 1 frame (16.7 ms); 60% sub-frame launches; p90 18.6 ms; n = 10 of 10 |
+| react-docx | prose-500w | < 1 frame (16.7 ms); 70% sub-frame launches; p90 18.1 ms; n = 10 of 10 |
 | BetterOffice | prose-50kw | 19.4 ms; 30% sub-frame launches; p90 25.5 ms; n = 10 of 10 |
 | Nutrient | prose-50kw | 47.7 ms; 0% sub-frame launches; p90 53.0 ms; n = 10 of 10 |
 | OnlyOffice (CryptPad build) | prose-50kw | 24.3 ms; 50% sub-frame launches; p90 49.3 ms; n = 10 of 10 |
 | OpenDoc | prose-50kw | 22.3 ms; 10% sub-frame launches; p90 29.9 ms; n = 10 of 10 |
-| react-docx | prose-50kw | 26.8 ms; 0% sub-frame launches; p90 33.4 ms; n = 10 of 10 |
+| react-docx | prose-50kw | 21.9 ms; 30% sub-frame launches; p90 26.6 ms; n = 10 of 10 |
 | BetterOffice | prose-5kw | < 1 frame (16.7 ms); 50% sub-frame launches; p90 22.9 ms; n = 10 of 10 |
 | Nutrient | prose-5kw | 47.5 ms; 0% sub-frame launches; p90 52.3 ms; n = 10 of 10 |
 | OnlyOffice (CryptPad build) | prose-5kw | 32.8 ms; 30% sub-frame launches; p90 49.3 ms; n = 10 of 10 |
 | OpenDoc | prose-5kw | 21.5 ms; 0% sub-frame launches; p90 24.5 ms; n = 10 of 10 |
-| react-docx | prose-5kw | < 1 frame (16.7 ms); 60% sub-frame launches; p90 19.2 ms; n = 10 of 10 |
+| react-docx | prose-5kw | < 1 frame (16.7 ms); 90% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
 
 #### Initial layout (C11)
 
