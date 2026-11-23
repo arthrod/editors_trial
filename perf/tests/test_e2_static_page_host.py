@@ -83,6 +83,45 @@ class StaticPageHost(unittest.TestCase):
         with self.assertRaisesRegex(FileNotFoundError, 'fetch script'):
             hosts.static_page_meta('onlyoffice', {'cwd': self.page}, hosts.host_policy('onlyoffice'))
 
+    def test_a_host_that_fails_validation_is_recorded_unpublishable(self):
+        # CodeRabbit on #283 (2026-11-23): start_host stored the publishable
+        # production policy first; a missing vendor tree raised past it and the
+        # run still listed the host as publishable.
+        (self.page / 'vendor').unlink()
+        run = BrowserRun(Path(self.tmp.name), 'static', snapshot=lambda: {})
+        token = ACTIVE.set(run)
+        self.addCleanup(ACTIVE.reset, token)
+        target = {'cwd': self.page, 'url': 'http://127.0.0.1:0/'}
+        with self.assertRaises(FileNotFoundError):
+            hosts.start_host('onlyoffice', target, lambda *a: self.fail('legacy start used'))
+        meta = run.hosts['onlyoffice']
+        self.assertIs(meta['publishable'], False)
+        self.assertEqual(meta['outcome'], 'failed')
+        self.assertIn('fetch script', meta['publication_block_reason'])
+
+    def test_a_host_tree_that_changes_during_the_run_blocks_publication(self):
+        # CodeRabbit on #283 (2026-11-23): the hash taken at start was published
+        # even if the served files changed before the run ended.
+        for change in (False, True):
+            with self.subTest(changed=change):
+                run = BrowserRun(Path(self.tmp.name), 'static', snapshot=lambda: {},
+                                 accounting_reader=lambda: {'available': False, 'reason': 'fake'})
+                token = ACTIVE.set(run)
+                target = {'cwd': self.page, 'url': 'http://127.0.0.1:0/'}
+                try:
+                    hosts.start_host('onlyoffice', target, lambda *a: self.fail('legacy start used')).stop()
+                finally:
+                    ACTIVE.reset(token)
+                if change:
+                    (self.page / 'vendor' / 'x2t' / 'x2t.wasm').write_bytes(b'changed during the run')
+                result = run.finish({'outcome': 'ok', 'publishable': True})
+                if change:
+                    self.assertIs(result['publishable'], False)
+                    self.assertIn('host_tree_changed_during_run: onlyoffice', result['publication_block_reason'])
+                    self.assertIn('tree_sha256_at_finish', run.hosts['onlyoffice'])
+                else:
+                    self.assertNotIn('host_tree_changed', str(result.get('publication_block_reason')))
+
     def test_only_onlyoffice_is_a_static_page(self):
         self.assertEqual(set(hosts.STATIC_PAGES), {'onlyoffice'})
 

@@ -234,6 +234,39 @@ def build_host(editor, target, out_root, *, repos_root=None):
             log.write(build_log)
 
 
+def _validated(run, editor, policy, describe):
+    """Run a static host's provenance check; a failure leaves the host unpublishable.
+
+    ``start_host`` stores the production policy (publishable) first. A tree
+    that is missing or unreadable raised past it, so the run still listed the
+    host as publishable (CodeRabbit on #283, 2026-11-23).
+    """
+    try:
+        return describe()
+    except Exception as exc:
+        if run is not None:
+            run.hosts[editor] = {**policy, 'host_build': 'build_failed', 'outcome': 'failed',
+                                 'failure_reason': 'host_build', 'publishable': False,
+                                 'publication_block_reason': f'static host validation failed: {exc}'}
+        raise
+
+
+def host_tree_now(editor, meta):
+    """The provenance hash of the bytes this host serves now, to compare at the run's end.
+
+    A static host serves its files from disk for every sample, so the hash taken
+    when it started describes the run only if the files did not change since
+    (CodeRabbit on #283, 2026-11-23). None when the host records no tree.
+    """
+    if meta.get('adapter') == 'static_page' and meta.get('static_root'):
+        return static_page_meta(editor, {'cwd': meta['static_root']}, {})['tree_sha256']
+    if meta.get('tree_root'):
+        return tree_hash(Path(meta['tree_root']))
+    if meta.get('build_directory'):
+        return tree_hash(Path(meta['build_directory']))
+    return None
+
+
 def start_host(editor, target, legacy_start):
     run = ACTIVE.get()
     policy = host_policy(editor)
@@ -248,8 +281,9 @@ def start_host(editor, target, legacy_start):
     if editor == 'wordcraft':
         repos = Path(target.get('repos_root') or (REPO / 'harness').resolve().parent / 'repos')
         root = repos / 'wordcraft/dist/web'
-        meta = {**policy, 'tree_sha256': tree_hash(root),
-                'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())}
+        meta = _validated(run, editor, policy, lambda: {
+            **policy, 'tree_sha256': tree_hash(root), 'tree_root': str(root.resolve()),
+            'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())})
         if run is not None:
             run.hosts[editor] = meta
         target = {**target, 'env': {**target.get('env', {}), 'WC_DIST': str(root.resolve())}}
@@ -261,8 +295,9 @@ def start_host(editor, target, legacy_start):
         # every other static host still goes through build_host below.
         repos = Path(target.get('repos_root') or (REPO / 'harness').resolve().parent / 'repos')
         root = repos / 'opendoc/webapp'
-        meta = {**policy, 'tree_sha256': tree_hash(root),
-                'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())}
+        meta = _validated(run, editor, policy, lambda: {
+            **policy, 'tree_sha256': tree_hash(root), 'tree_root': str(root.resolve()),
+            'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())})
         if run is not None:
             run.hosts[editor] = meta
         target = {**target, 'env': {**target.get('env', {}), 'OPENDOC_WEBAPP': str(root.resolve())}}
@@ -272,7 +307,7 @@ def start_host(editor, target, legacy_start):
     meta = run.hosts.get(editor, {})
     if editor in STATIC_PAGES:
         if not meta.get('static_root'):
-            meta = static_page_meta(editor, target, policy)
+            meta = _validated(run, editor, policy, lambda: static_page_meta(editor, target, policy))
             run.hosts[editor] = meta
         fixture = target.get('fixture')
         if fixture is None and run.fixtures:

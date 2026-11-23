@@ -212,3 +212,24 @@ def test_a_file_that_keeps_changing_does_not_stop_the_files_after_it(tmp_path, m
     else:
         raise AssertionError('a file that never settled must make the duplicate fail')
     assert sorted(p.name for p in dest.iterdir()) == ['B.json', 'C.json']
+
+
+def test_a_checkpoint_that_cannot_start_is_a_failure_line_not_a_stopped_campaign(tmp_path, monkeypatch, capsys):
+    # CodeRabbit on #283 (2026-11-23): Popen raising (no `nice`, no interpreter)
+    # or the log failing to open ended the campaign before its first job, with
+    # no RUN-DONE. It is now a line in RUN-DONE's failures and the run goes on.
+    from perf.container import run
+
+    def refuse(*a, **k):
+        raise OSError('nice: not found')
+
+    monkeypatch.setattr(run.subprocess, 'Popen', refuse)
+    failures = []
+    assert run.start_checkpoint(tmp_path, failures) is False
+    assert failures == ['checkpoint: not started: nice: not found']
+    assert 'CHECKPOINT-NOT-STARTED' in capsys.readouterr().out
+    # A log that cannot be opened is the same failure.
+    monkeypatch.undo()
+    failures = []
+    assert run.start_checkpoint(tmp_path / 'missing-dir', failures) is False
+    assert failures and failures[0].startswith('checkpoint: not started:')
