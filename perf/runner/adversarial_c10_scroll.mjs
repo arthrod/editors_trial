@@ -168,9 +168,12 @@ const corpusBytes = fs.readFileSync(corpusFile);
  *                                  (`addStyleTag` only reaches the light DOM).
  *   `{op: 'reset', index}`      → put the container back at the top.
  *   `{op: 'scroll', index}`     → scroll the container down by `step` pixels
- *                                  and report the `scrollTop` delta, the
- *                                  content probe and the scroll event.
+ *                                  and report the `scrollTop` delta; nothing
+ *                                  else runs before the frame it times.
  *   `{op: 'scroll-event'}`      → the scroll event the last scroll produced.
+ *   `{op: 'scroll-content'}`    → the content check of the last scroll (did the
+ *                                 content move, what is visible), read after
+ *                                 the witness so it is outside the timed window.
  */
 function pageScrollCommand(command) {
   const op = (command && command.op) || 'discover';
@@ -619,7 +622,40 @@ function pageScrollCommand(command) {
   }
 
   if (op === 'scroll-event') {
-    return { scroll_event: window.__b5ScrollEvent || null };
+    // The event's time was taken in the listener; the content position is
+    // read now, after the witness has its frame (the scroll has settled, so
+    // it is the position the event saw).
+    const event = window.__b5ScrollEvent || null;
+    if (event && event.page_ms !== null && window.__b5ScrollAfter) {
+      const probe = contentProbe(window.__b5ScrollAfter.contentRoot);
+      event.content_top = probe ? probe.rect_top : null;
+      event.content_top_read = 'after_witness';
+    }
+    return { scroll_event: event };
+  }
+
+  if (op === 'scroll-content') {
+    // The content check of the last scroll, read after the witness has its
+    // frame. Reading it inside the 'scroll' op put the walk (through every
+    // paragraph, for react-docx) between the scroll and the frame it times
+    // (CodeAnt on #283, 2026-11-23).
+    const last = window.__b5ScrollAfter;
+    if (!last) return null;
+    const probeAfter = contentProbe(last.contentRoot);
+    const visibleAfter = visibleContent(last.contentRoot, last.box);
+    const probeBefore = last.probeBefore;
+    const visibleBefore = last.visibleBefore;
+    return {
+      probe_selector: probeBefore ? probeBefore.selector : null,
+      top_before: probeBefore ? probeBefore.rect_top : null,
+      top_after: probeAfter ? probeAfter.rect_top : null,
+      moved_px: probeBefore && probeAfter ? probeBefore.rect_top - probeAfter.rect_top : null,
+      visible_selector_before: visibleBefore ? visibleBefore.selector : null,
+      visible_selector_after: visibleAfter ? visibleAfter.selector : null,
+      visible_text_before: visibleBefore ? visibleBefore.text : null,
+      visible_text_after: visibleAfter ? visibleAfter.text : null,
+      read: 'after_witness',
+    };
   }
 
   const found = scan();
@@ -650,13 +686,10 @@ function pageScrollCommand(command) {
 
   // The scroll event: the frame in which the scroll was applied. It is the
   // page's own statement that the content moved, at a known page time.
+  // Only the time is taken here: the listener runs before the frame paints.
   window.__b5ScrollEvent = { page_ms: null, content_top: null };
   const onScroll = () => {
-    const probe = contentProbe(contentRoot);
-    window.__b5ScrollEvent = {
-      page_ms: performance.now(),
-      content_top: probe ? probe.rect_top : null,
-    };
+    window.__b5ScrollEvent = { page_ms: performance.now(), content_top: null };
   };
   const eventTarget = isViewport ? document : el;
   eventTarget.addEventListener('scroll', onScroll, { once: true, passive: true });
@@ -666,10 +699,11 @@ function pageScrollCommand(command) {
   const before = el.scrollTop;
   const at = performance.now();
   const target = Math.min(range, before + Math.max(1, Number(command.step || 600)));
+  window.__b5ScrollAfter = { contentRoot, box, probeBefore, visibleBefore };
   el.scrollTop = target;
   const after = el.scrollTop;
-  const probeAfter = contentProbe(contentRoot);
-  const visibleAfter = visibleContent(contentRoot, box);
+  // Nothing else runs between the scroll and the frame the witness times:
+  // the content check is the 'scroll-content' op, read after the witness.
   return {
     page_ms: at,
     scroll_top_before: before,
@@ -678,16 +712,6 @@ function pageScrollCommand(command) {
     scroll_range: range,
     container: record || null,
     region_rect: box,
-    content: {
-      probe_selector: probeBefore ? probeBefore.selector : null,
-      top_before: probeBefore ? probeBefore.rect_top : null,
-      top_after: probeAfter ? probeAfter.rect_top : null,
-      moved_px: probeBefore && probeAfter ? probeBefore.rect_top - probeAfter.rect_top : null,
-      visible_selector_before: visibleBefore ? visibleBefore.selector : null,
-      visible_selector_after: visibleAfter ? visibleAfter.selector : null,
-      visible_text_before: visibleBefore ? visibleBefore.text : null,
-      visible_text_after: visibleAfter ? visibleAfter.text : null,
-    },
   };
 }
 
@@ -1057,6 +1081,9 @@ async function oneSample(context, page) {
   });
 
   const scrollEvent = await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS, op: 'scroll-event' });
+  if (scroll && !scroll.error) {
+    scroll.content = await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS, op: 'scroll-content' });
+  }
   const container = scroll && scroll.container ? scroll.container : null;
   if (container) {
     container.container_rule = discovery.container_rule || container.container_rule || null;

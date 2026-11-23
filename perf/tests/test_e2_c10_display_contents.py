@@ -13,6 +13,11 @@ A1  ``contents.html`` with ``--through-contents`` measures.
 A2  ``contents.html`` without the flag refuses, as before this change.
 A3  ``prose.html`` (the plain host) measures with no ``through_display_contents``.
 A4  Only react-docx's browser target sets the flag; the lane passes it.
+A5  The content walk runs after the witness has its frame, not inside the
+    timed window (CodeAnt on #283, 2026-11-23: the walk through every
+    paragraph made up ~40% of react-docx's 250kw sample). On
+    ``contents-slow.html`` every style read costs 250 ms once the page has
+    scrolled, so a walk inside the window makes the sample at least 250 ms.
 """
 
 from __future__ import annotations
@@ -68,6 +73,15 @@ class DisplayContentsScrollTests(unittest.TestCase):
             target = {**BROWSER_TARGETS[name], "editor_id": name}
             cmd = _probe_command(target=target, corpus_path=Path("x.docx"), pairs=1)
             self.assertEqual("--through-contents" in cmd, name == "reactdocx", name)
+
+    def test_the_content_walk_is_not_inside_the_timed_window(self):
+        payload = self.probe("contents-slow.html", extra=("--through-contents",))
+        self.assertEqual(payload.get("outcome"), "measured", "expected a measurement: %r" % (payload.get("reason"),))
+        sample = (payload.get("samples") or [{}])[0]
+        self.assertGreater((sample.get("content") or {}).get("moved_px") or 0, 0, sample.get("content"))
+        frame_ms = sample.get("scroll_frame_ms")
+        self.assertIsInstance(frame_ms, (int, float), sample)
+        self.assertLess(frame_ms, 250, "the walk ran between the scroll and its frame: %r ms" % (frame_ms,))
 
     def test_the_plain_host_keeps_its_first_pass_probe(self):
         payload = self.probe("prose.html")
