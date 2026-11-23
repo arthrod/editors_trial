@@ -340,6 +340,20 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
         facts[key + '.reason'] = reason
         return reason
     p_cell, r_cell = groups[0], groups[1]
+    if all(isinstance(cell.get('scheduled'), int) and not isinstance(cell.get('scheduled'), bool)
+           and cell['scheduled'] == 0 for cell in groups):
+        # The count was recorded, and it is zero: the lane ran no launch of this
+        # cell. For a viewer that is the runner's own decision, with its reason
+        # (Nutrient's C05/C06, later campaign, 2026-11-23); it was printed as
+        # "scheduled count not recorded", which is untrue.
+        from build.perf_e2_summary import VIEWER_NOT_APPLICABLE
+        viewer = VIEWER_NOT_APPLICABLE.get(editor)
+        reason = ('does not apply: %s (no launch was scheduled for it)' % viewer if viewer
+                  else 'no launch was scheduled in either round')
+        facts[key + '.reason'] = reason
+        facts.setdefault('_not_reproduced', []).append(
+            (DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—'))
+        return reason
     facts[key + '.primary'] = e2_cells.public_cell_dict(p_cell)
     facts[key + '.reproduction'] = e2_cells.public_cell_dict(r_cell)
     for label, cell in zip(('first', 'second'), groups):

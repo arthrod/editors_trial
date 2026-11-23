@@ -57,8 +57,22 @@ PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame that shows th
 
 #: The typing lanes refuse a launch with this reason when the editor exposes no glyph outline (#238).
 GLYPH_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
+#: Why a lane has nothing to measure on a viewer, as the runner records it, by editor
+#: (perf/runner/benchmark_warm_cold.py BROWSER_TARGETS "viewer_not_applicable", read by
+#: the input, typing and resource lanes; build/test_e2_viewer_cells.py checks the copy).
+VIEWER_NOT_APPLICABLE = {
+    'nutrient': 'Nutrient Web SDK is a viewer here: there is no caret and nothing to type into',
+}
+#: The document lane's C12 reason for the same viewer (perf/runner/benchmark_document.py
+#: DOCUMENT_TARGETS "c12_not_applicable").
+VIEWER_NO_REFLOW = {
+    'nutrient': ('Nutrient Web SDK is a viewer here: nothing in the document can be edited, so there '
+                 'is no reflow after an edit to time'),
+}
 #: Recorded reasons for which "does not apply" is true: there was nothing to measure.
-NOTHING_TO_MEASURE = frozenset({'no_deferred_work'})
+NOTHING_TO_MEASURE = frozenset({'no_deferred_work', *VIEWER_NOT_APPLICABLE.values(), *VIEWER_NO_REFLOW.values()})
+#: A cell's reason when a viewer's lane scheduled no launch at all (build/perf_e2_tables.py _cell_text).
+_NOT_SCHEDULED_VIEWER = re.compile(r'^does not apply: .+ \(no launch was scheduled for it\)$')
 
 
 def under_text(frame: float) -> str:
@@ -141,6 +155,8 @@ def _why(reason: str, cells=()) -> str:
     """
     if 'medians outside tolerance' in reason:
         return 'varied'
+    if _NOT_SCHEDULED_VIEWER.match(reason):
+        return 'does not apply'
     rounds = {name: (int(kept), int(scheduled), _round_reasons(reasons))
               for name, kept, scheduled, reasons in _ROUND.findall(reason)}
     if set(rounds) != {'first', 'second'}:
