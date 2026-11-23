@@ -66,8 +66,28 @@ def test_a_viewer_cell_with_no_launch_scheduled_says_does_not_apply_and_why():
 
 def test_an_editor_cell_with_no_launch_scheduled_is_not_called_a_viewer():
     text, _ = _cell_text_with([{"scheduled": 0}, {"scheduled": 0}], editor="opendoc")
-    assert text == "no launch was scheduled in either round"
-    assert summary._why(text) == 'no figure'
+    assert text == "first: scheduled count not recorded"
+
+
+def test_a_viewer_criterion_the_runner_schedules_keeps_its_own_wording():
+    """Codex: a zero count can be a summary without its order; opening applies to a viewer."""
+    pooled = {"groups": [{"scheduled": 0}, {"scheduled": 0}], "published": False, "reason": "x"}
+    with mock.patch.object(E2.e2_cells, "read_criterion_cell", return_value=pooled):
+        text = E2._cell_text({}, [], "nutrient", "C11", "", "prose-500w")
+    assert text == "first: scheduled count not recorded"
+
+
+def test_a_blocked_viewer_round_is_not_called_not_applicable():
+    text, _ = _cell_text_with([{"scheduled": 0, "blocked": True, "block_reason": "run blocked"}, {"scheduled": 0}])
+    assert not text.startswith("does not apply")
+
+
+def test_the_runner_leaves_exactly_these_criteria_out_of_the_viewer():
+    targets = benchmark_warm_cold.BROWSER_TARGETS
+    declared = set(targets["nutrient"]["criteria"])
+    every_editor = set.intersection(*(set(t.get("criteria") or {}) for name, t in targets.items() if name != "nutrient"))
+    assert summary.VIEWER_UNSCHEDULED["nutrient"] <= every_editor - declared
+    assert summary.VIEWER_NOT_APPLICABLE["nutrient"] == VIEWER
 
 
 def test_a_missing_scheduled_count_still_says_so():

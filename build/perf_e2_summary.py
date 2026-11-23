@@ -63,6 +63,12 @@ GLYPH_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
 VIEWER_NOT_APPLICABLE = {
     'nutrient': 'Nutrient Web SDK is a viewer here: there is no caret and nothing to type into',
 }
+#: The warm/cold lane's criteria a viewer's target leaves out, so that no launch
+#: of them is scheduled (perf/runner/benchmark_warm_cold.py: Nutrient declares C03
+#: only, every editor declares C05 and C06; the test checks it).
+VIEWER_UNSCHEDULED = {
+    'nutrient': frozenset({'C05', 'C06'}),
+}
 #: The document lane's C12 reason for the same viewer (perf/runner/benchmark_document.py
 #: DOCUMENT_TARGETS "c12_not_applicable").
 VIEWER_NO_REFLOW = {
