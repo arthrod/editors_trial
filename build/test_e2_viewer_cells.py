@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest import mock
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "build"))
@@ -52,7 +53,8 @@ def test_a_harness_refusal_still_says_not_measured():
 def _cell_text_with(groups, editor="nutrient"):
     pooled = {"groups": groups, "published": False, "reason": "first seed: 0 of 0 launches kept"}
     facts = {}
-    with mock.patch.object(E2.e2_cells, "read_criterion_cell", return_value=pooled):
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(E2.e2_cells, "read_criterion_cell", lambda *a, **k: pooled)
         text = E2._cell_text(facts, [], editor, "C05", "warm_steady", "prose-500w")
     return text, facts
 
@@ -72,7 +74,8 @@ def test_an_editor_cell_with_no_launch_scheduled_is_not_called_a_viewer():
 def test_a_viewer_criterion_the_runner_schedules_keeps_its_own_wording():
     """Codex: a zero count can be a summary without its order; opening applies to a viewer."""
     pooled = {"groups": [{"scheduled": 0}, {"scheduled": 0}], "published": False, "reason": "x"}
-    with mock.patch.object(E2.e2_cells, "read_criterion_cell", return_value=pooled):
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(E2.e2_cells, "read_criterion_cell", lambda *a, **k: pooled)
         text = E2._cell_text({}, [], "nutrient", "C11", "", "prose-500w")
     assert text == "first: scheduled count not recorded"
 

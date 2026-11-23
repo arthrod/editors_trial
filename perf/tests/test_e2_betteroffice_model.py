@@ -21,8 +21,11 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import unittest
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 HOSTS = REPO / "perf" / "tests" / "fixtures" / "hosts"
@@ -86,38 +89,32 @@ class BetterOfficeModelReaders(unittest.TestCase):
         self.assertEqual(self.payload["docen_usable"], DOCEN_USABLE)
 
 
-class ServerCleanup(unittest.TestCase):
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not on PATH: the class setup skips before it starts a server")
+def test_a_failed_probe_still_stops_the_server(monkeypatch, tmp_path):
     """CodeRabbit on #283 (2026-11-23): a probe that fails in setUpClass skips
     tearDownClass, so the static server stayed up. The stop is now a class
-    cleanup registered as soon as the server starts."""
+    cleanup registered as soon as the server starts: a failing probe fails the
+    class setup and the server is still stopped."""
+    stopped = []
 
-    def test_a_failed_probe_still_stops_the_server(self):
-        import sys
-        import tempfile
-        from unittest import mock
+    class FakeHost:
+        url = "http://127.0.0.1:1"
 
-        stopped = []
+        def __init__(self, root):
+            pass
 
-        class FakeHost:
-            url = "http://127.0.0.1:1"
+        def stop(self):
+            stopped.append(True)
 
-            def __init__(self, root):
-                pass
-
-            def stop(self):
-                stopped.append(True)
-
-        module = sys.modules[__name__]
-        with tempfile.TemporaryDirectory() as tmp:
-            failing = Path(tmp) / "fail.mjs"
-            failing.write_text("process.exit(1);\n")
-            with mock.patch("perf.runner.browser_hosts.StaticHost", FakeHost), \
-                    mock.patch.object(module, "PROBE", failing):
-                suite = unittest.defaultTestLoader.loadTestsFromTestCase(BetterOfficeModelReaders)
-                result = unittest.TestResult()
-                suite.run(result)
-        self.assertTrue(result.errors, "the failing probe should fail the class setup")
-        self.assertEqual(stopped, [True])
+    failing = tmp_path / "fail.mjs"
+    failing.write_text("process.exit(1);\n")
+    monkeypatch.setattr("perf.runner.browser_hosts.StaticHost", FakeHost)
+    monkeypatch.setattr(sys.modules[__name__], "PROBE", failing)
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(BetterOfficeModelReaders)
+    result = unittest.TestResult()
+    suite.run(result)
+    assert result.errors, "the failing probe should fail the class setup"
+    assert stopped == [True]
 
 
 if __name__ == "__main__":
