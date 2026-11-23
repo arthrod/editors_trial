@@ -85,8 +85,8 @@ The search used the GitHub API over three queries and three topic listings (`doc
 | `storytold/wordcraft` | **16,895** | Rust | Apache-2.0 | yes — #8 |
 | `udecode/plate` | **16,685** | TypeScript | `NOASSERTION` | **yes — #12, added 2026-10-30** |
 | `genspark-ai/genoffice` | **11,474** | TypeScript | Apache-2.0 | yes — #4 |
-| `dolanmiu/docx` | 5,983 | TypeScript | MIT | no — a **generator**, not an editor: it writes .docx from a JS model and cannot read one |
 | `ONLYOFFICE/DocumentServer` | 7,071 | Shell/C++ | AGPL-3.0 | no at the sweep — a full office server, not a library; its round trip is a document-server pipeline, not an embeddable editor API; **its editor, in CryptPad's build, added in v0.11.0** |
+| `dolanmiu/docx` | 5,983 | TypeScript | MIT | no — a **generator**, not an editor: it writes .docx from a JS model and cannot read one |
 | `Hufe921/canvas-editor` | **5,248** | TypeScript | MIT | yes — #9 |
 | `superdoc/docx-editor` | **1,117** | TypeScript | AGPL-3.0 | yes — #1 |
 | `fiduswriter/fiduswriter` | **569** | TypeScript | AGPL-3.0 | yes — #10 |
