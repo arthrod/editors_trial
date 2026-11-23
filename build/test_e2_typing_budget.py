@@ -182,5 +182,55 @@ class TypingMismatch(unittest.TestCase):
                                                    {"text_mismatch": 1, "crash": 1}))
 
 
+class CampaignInventory(unittest.TestCase):
+    """The later campaign's "N run folders contributed M jobs" counted the 12
+    typing jobs its reruns measured again as well as the reruns (164, not 152).
+    A job every editor of which was measured again contributed nothing."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.base = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _job(self, root, run_id, index, seed, editors):
+        job = root / "benchmark_typing" / f"{run_id}-{index:03d}"
+        for i, editor in enumerate(editors):
+            (job / "cells" / f"{i:04d}-{editor}" / "attempts").mkdir(parents=True)
+        (job / "summary.json").write_text(json.dumps({"seed": seed, "run_id": f"{run_id}-{index:03d}"}))
+        return job
+
+    def test_a_job_measured_again_for_every_editor_is_not_counted(self):
+        camp = self.base / "camp" / "20261122T000000000000Z-1-1"
+        rerun = self.base / "rerun" / "20261123T000000000000Z-2-2"
+        self._job(camp, camp.name, 46, 1, ["onlyoffice"])
+        self._job(camp, camp.name, 7, 1, ["onlyoffice", "betteroffice"])
+        self._job(rerun, rerun.name, 46, 1, ["onlyoffice"])
+        entry = [{"issue": "later-rerun", "editor": "onlyoffice", "jobs": [46, 7], "kept_runs": [rerun.name]}]
+        with E2.e2_cells.superseded_cells(entry):
+            view = E2._campaign_view([camp, rerun])
+        # Job 46 of the campaign is replaced whole; job 7 still holds BetterOffice's cells.
+        self.assertEqual(view["jobs"], 2)
+        self.assertEqual(len(view["by_seed"][1]), 2)
+
+    def test_the_machine_note_counts_the_same_jobs(self):
+        camp = self.base / "camp" / "20261122T000000000000Z-1-1"
+        rerun = self.base / "rerun" / "20261123T000000000000Z-2-2"
+        self._job(camp, camp.name, 46, 1, ["onlyoffice"])
+        self._job(camp, camp.name, 7, 1, ["onlyoffice", "betteroffice"])
+        self._job(rerun, rerun.name, 46, 1, ["onlyoffice"])
+        entry = [{"issue": "later-rerun", "editor": "onlyoffice", "jobs": [46, 7], "kept_runs": [rerun.name]}]
+        with E2.e2_cells.superseded_cells(entry):
+            note = E2._host_note_campaign([camp, rerun], ["onlyoffice", "betteroffice"])
+        self.assertIn("Seed 1 — 2 jobs", note)
+
+    def test_without_reruns_every_job_counts(self):
+        camp = self.base / "camp" / "20261122T000000000000Z-1-1"
+        self._job(camp, camp.name, 46, 1, ["onlyoffice"])
+        self._job(camp, camp.name, 7, 2, ["onlyoffice", "betteroffice"])
+        self.assertEqual(E2._campaign_view([camp])["jobs"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
