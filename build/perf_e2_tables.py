@@ -1899,6 +1899,17 @@ def _typing_job_of(job, summary, editor, kind) -> bool:
     return not order or any(entry[1] == editor for entry in order)
 
 
+def _unfinished_typing_job_of(job: Path, editor: str) -> bool:
+    """A typing-lane job with cells whose cell folders are this editor's, or nobody's yet."""
+    from perf.analysis import e2_cells
+    if job.parent.name != 'benchmark_typing' or not job.name.rpartition('-')[2].isdigit():
+        return False
+    if not (job / 'cells').is_dir():
+        return False
+    owners = {m.group(1) for m in (e2_cells._CELL_DIR.match(p.name) for p in e2_cells._listing(job / 'cells', '*')) if m}
+    return not owners or editor in owners
+
+
 def _typing_group_for_seed(roots, editor, kind, seed):
     from perf.analysis import e2_cells
     from perf.analysis.e2_typing import _sessions_from_jobs
@@ -1912,10 +1923,12 @@ def _typing_group_for_seed(roots, editor, kind, seed):
             if e2_cells.job_superseded(job, editor):
                 continue
             summary = e2_cells._load_summary(job)
-            if summary is None and job.name.rpartition('-')[2].isdigit() and (job / 'cells').is_dir():
+            if summary is None and _unfinished_typing_job_of(job, editor):
                 # A job pulled mid-run has cells but no summary yet: read as {}, it
                 # matched every editor and blocked their typing cells ("run policy",
-                # 2026-11-23). Skipping it would hide an unfinished measurement.
+                # 2026-11-23). Skipping it would hide an unfinished measurement, so the
+                # build refuses; only for a typing job of this editor (or of no editor
+                # yet), as another editor's table refuses its own (Gitar review, #286).
                 raise ValueError("typing job %s has no readable summary.json: an unfinished job cannot be published" % job)
             summary = summary or {}
             if summary.get('seed') not in (None, seed):

@@ -134,6 +134,19 @@ class SupersededTypingJobs(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "otherrun-123 has no readable summary.json"):
                 E2._typing_group_for_seed([base], "betteroffice", "throughput", 1)
 
+    def test_an_unfinished_job_of_another_lane_or_editor_leaves_this_editors_typing_alone(self):
+        """Gitar review on #286: the refusal reached jobs of other lanes and other editors."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "run"
+            self._job(base, "rerunrun", 48, 1)
+            (base / "benchmark_input" / "inputrun-7" / "cells" / "0000-betteroffice").mkdir(parents=True)
+            (base / "benchmark_typing" / "otherrun-46" / "cells" / "0000-onlyoffice").mkdir(parents=True)
+            group = E2._typing_group_for_seed([base], "betteroffice", "throughput", 1)
+            self.assertEqual(group["scheduled"], 6)
+            # the editor whose job it is still refuses, so the build as a whole still does
+            with self.assertRaisesRegex(ValueError, "otherrun-46 has no readable summary.json"):
+                E2._typing_group_for_seed([base], "onlyoffice", "throughput", 1)
+
 
 class TypingMismatch(unittest.TestCase):
     """react-docx, later campaign: every session typed all its keys but the text read back differed.
