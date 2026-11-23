@@ -151,17 +151,51 @@ def check_comparable(primary: Run, repro: Run) -> None:
 _PIN_SENTINEL = object()
 
 
-def _pins(root: Path, *, ran_only: bool = False) -> dict:
+# The ``superseded_cells`` entries of the current ``facts_from_roots`` call, as
+# given (``e2_cells`` keeps only editor, jobs and kept_runs): their ``note``
+# says why a re-run's own pin differs.
+_RERUN_ENTRIES: tuple = ()
+
+
+def _rerun_entry(path: Path, editor: str):
+    """The ``superseded_cells`` entry whose kept run measured this attempt for this editor, or None.
+
+    A job directory is ``<run id>-<index>`` and holds ``cells/<cell>/attempts/<file>``.
+    """
+    job = Path(path).parents[3]
+    run_id, _, tail = job.name.rpartition("-")
+    if not tail.isdigit():
+        return None
+    for entry in _RERUN_ENTRIES:
+        if entry.get("editor") == editor and run_id in (entry.get("kept_runs") or ()) \
+                and int(tail) in {int(i) for i in entry.get("jobs") or ()}:
+            return entry
+    return None
+
+
+def _pins(root: Path, *, ran_only: bool = False, reruns: str = "include") -> dict:
     """Built-editor identity per editor (#149).
 
     ``host_provenance.tree_sha256`` — the built editor — is the pin whenever
     present, for every lane; ``environment.editor_version`` counts only when
     it is a real pin, not the editor slug the runner stamps there. A trial
     with neither records "not recorded".
+
+    ``reruns``: "include" every attempt; "exclude" the attempts a
+    ``superseded_cells`` entry keeps for that editor (a re-run may carry its
+    own pin, owner's decision 2026-11-23, disclosed in the host note).
     """
     pins = {}
-    for row in e2_cells._iter_trials(root):
-        if ran_only and row.get("outcome") == "not_run":
+    if reruns == "exclude":
+        rows = ((path, row) for _, path, row in e2_cells._iter_attempt_rows(root)
+                if row.get("criterion_id") and row.get("editor_id"))
+    else:
+        rows = ((None, row) for row in e2_cells._iter_trials(root))
+    for path, row in rows:
+        # A not-applicable attempt launched no editor, so it has no build to report.
+        if ran_only and row.get("outcome") in ("not_run", "not_applicable"):
+            continue
+        if reruns == "exclude" and _rerun_entry(path, row["editor_id"]) is not None:
             continue
         pin = e2_cells.editor_pin(row)
         pins.setdefault(row["editor_id"], set()).add(pin if pin else _PIN_SENTINEL)
@@ -170,9 +204,13 @@ def _pins(root: Path, *, ran_only: bool = False) -> dict:
 
 def _campaign_pins(roots) -> dict:
     """Pins from every run folder, not the first one only: a campaign spreads editors over many folders."""
+    return _campaign_pins_of(roots)
+
+
+def _campaign_pins_of(roots, *, reruns: str = "include") -> dict:
     merged: dict = {}
     for root in roots:
-        for editor, values in _pins(root, ran_only=True).items():
+        for editor, values in _pins(Path(root), ran_only=True, reruns=reruns).items():
             merged.setdefault(editor, set()).update(values)
     return {editor: sorted(values) for editor, values in merged.items()}
 
@@ -195,6 +233,8 @@ def _require_same_pins(primary: Path, repro: Path) -> None:
     refuses per launch (``pin_not_recorded`` in ``e2_cells``) rather than
     vetoing every other editor's cells.
     """
+    # The classic primary/reproduction pair never carries re-measured cells, so
+    # nothing is excused here; a campaign compares its pins in _require_campaign_pins.
     a, b = _pins(primary), _pins(repro)
     for editor in sorted(set(a) | set(b)):
         recorded_a = set(a.get(editor, ())) - {"not recorded"}
@@ -524,8 +564,68 @@ def check_roots_comparable(roots, *, strict_rendering: bool = True) -> None:
             raise ValueError("the reproduction used another host class")
         if summary.get("execution_profile") != first.get("execution_profile"):
             raise ValueError("the reproduction used another execution profile")
-    for index, root in enumerate(roots[1:], 1):
-        _require_same_pins(Path(roots[0]), Path(root))
+    _require_campaign_pins(roots)
+    _rerun_pins(roots)
+
+
+def _require_campaign_pins(roots) -> None:
+    """Every run folder must have measured the same built editor (#149), the
+    attempts a ``superseded_cells`` entry keeps aside (checked in _rerun_pins).
+
+    The recorded pins of every folder are pooled per editor, not compared with
+    the first folder's: a first folder with no row of an editor must not let
+    two other folders disagree.
+    """
+    for editor, values in sorted(_campaign_pins_of(roots, reruns="exclude").items()):
+        recorded = sorted(set(values) - {"not recorded"})
+        if len(recorded) > 1:
+            raise ValueError("the reproduction attested other editor pins (%s: %s; built-editor tree)"
+                             % (editor, " vs ".join(recorded)))
+
+
+def _rerun_pins(roots) -> list:
+    """Each ``superseded_cells`` entry's kept attempts and the one pin they carry.
+
+    Returns ``(entry, pin, campaign pins)`` for every entry whose kept attempts
+    ran on another build than the editor's other attempts; refuses kept
+    attempts of one entry on more than one recorded build, and a differing pin
+    the entry gives no ``note`` for.
+    """
+    kept: dict = {}
+    for root in roots:
+        for _, path, row in e2_cells._iter_attempt_rows(Path(root)):
+            editor = row.get("editor_id")
+            if not (row.get("criterion_id") and editor) or row.get("outcome") in ("not_run", "not_applicable"):
+                continue
+            entry = _rerun_entry(path, editor)
+            if entry is not None:
+                pin = e2_cells.editor_pin(row)
+                if pin:
+                    kept.setdefault(id(entry), (entry, set()))[1].add(pin)
+    others = _campaign_pins_of(roots, reruns="exclude")
+    found = []
+    by_editor: dict = {}
+    for entry, pins in kept.values():
+        editor = entry["editor"]
+        if len(pins) > 1:
+            raise ValueError("%s's re-measured cells attested other editor pins (%s; built-editor tree)"
+                             % (editor, ", ".join(sorted(pins))))
+        by_editor.setdefault(editor, set()).update(pins)
+    for editor, pins in sorted(by_editor.items()):
+        # With no other row of the editor left, its re-runs are its campaign: one build.
+        if not set(others.get(editor, ())) - {"not recorded"} and len(pins) > 1:
+            raise ValueError("the reproduction attested other editor pins (%s: %s; built-editor tree, "
+                             "re-measured cells only)" % (editor, " vs ".join(sorted(pins))))
+    for entry, pins in kept.values():
+        editor = entry["editor"]
+        (pin,) = pins
+        campaign = sorted(set(others.get(editor, ())) - {"not recorded"})
+        if campaign and campaign != [pin]:
+            if not (entry.get("note") or "").strip():
+                raise ValueError("%s's re-measured cells ran on another build (%s vs %s) and their "
+                                 "superseded_cells entry gives no note saying why" % (editor, pin, ", ".join(campaign)))
+            found.append((entry, pin, campaign))
+    return found
 
 
 def _host_note(summary: dict) -> str:
@@ -693,8 +793,19 @@ def _host_note_campaign(roots, editors) -> str:
     trial_pins = _campaign_pins(pin_roots)
     lines = [lead]
     lines.extend(_seed_host_note(seed, by_seed[seed]) for seed in sorted(by_seed, key=lambda value: (value is None, value)))
-    lines.append(_pins_text(trial_pins))
+    lines.append(_pins_text(trial_pins) + _rerun_pins_text(_rerun_pins(pin_roots)))
     return "\n\n".join(lines)
+
+
+def _rerun_pins_text(found) -> str:
+    """The re-measured cells that ran on another build, with the entry's reason (owner's decision 2026-11-23)."""
+    parts = []
+    for entry, pin, campaign in found:
+        jobs = sorted(int(i) for i in entry["jobs"])
+        parts.append(" %s's re-measured cells (job%s %s) ran on built-editor tree %s; its cells not re-measured, on %s: %s." % (
+            DISPLAY.get(entry["editor"], entry["editor"]), "s" if len(jobs) != 1 else "",
+            ", ".join(str(j) for j in jobs), pin, ", ".join(campaign), entry["note"].strip().rstrip(".")))
+    return "".join(parts)
 
 
 def _steal(summary: dict) -> str:
@@ -1254,8 +1365,14 @@ def facts_from_roots(roots, superseded_cells=None) -> dict:
     # file added before the next call is always seen (#176).
     # ``superseded_cells``: an editor's cells of some jobs, measured again by
     # later runs under the same job indices (#185); the old rows are not read.
-    with e2_cells._listing_scope(), e2_cells.superseded_cells(superseded_cells):
-        return _facts_from_roots(roots)
+    global _RERUN_ENTRIES
+    previous = _RERUN_ENTRIES
+    _RERUN_ENTRIES = tuple(superseded_cells or ())
+    try:
+        with e2_cells._listing_scope(), e2_cells.superseded_cells(superseded_cells):
+            return _facts_from_roots(roots)
+    finally:
+        _RERUN_ENTRIES = previous
 
 
 def _facts_from_roots(roots) -> dict:
