@@ -1,0 +1,3345 @@
+{
+  "archived_root": null,
+  "created": "2026-11-23T18:36:23.595917Z",
+  "excludes": [],
+  "files": [
+    {
+      "bytes": 23983,
+      "path": "release/et-v0.13.0/out/demo-files/canvas-editor.docx",
+      "served": false,
+      "sha256": "fb35d0708feb37f4902f5d002e5550aa9d7b19d0daf1e5766892bbd3ee694e1a"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/docen.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/docs-plus.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/docxodus.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/eigenpal.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/fidus-writer.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/folio.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/genoffice.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/office-open.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/plate.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/superdoc.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demo-files/wordcraft.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 312,
+      "path": "release/et-v0.13.0/out/demos/canvas-editor/SOURCE.txt",
+      "served": false,
+      "sha256": "b20bd92816e9cbe197489e715047f6d12b71e01346ba70eb95af111ec5aaf471"
+    },
+    {
+      "bytes": 34187,
+      "path": "release/et-v0.13.0/out/demos/canvas-editor/assets/index-CmeeXJM2.css",
+      "served": false,
+      "sha256": "e6dd5644a3877036a883870c64cdacdc4aa35e14d5fbfdc1f39d83f07d41ea4a"
+    },
+    {
+      "bytes": 1216391,
+      "path": "release/et-v0.13.0/out/demos/canvas-editor/assets/index-W3iy-xr8.js",
+      "served": false,
+      "sha256": "63194d1dbbd299428064ba33f06ebdc13cf8cdba06cded7d498a438e918100f7"
+    },
+    {
+      "bytes": 23983,
+      "path": "release/et-v0.13.0/out/demos/canvas-editor/document.docx",
+      "served": false,
+      "sha256": "eaba518a86baddef8cf91a86bac30fc717ebe1199f90d3353b1f2b83a2a77213"
+    },
+    {
+      "bytes": 905,
+      "path": "release/et-v0.13.0/out/demos/canvas-editor/index.html",
+      "served": false,
+      "sha256": "c3d13828e61c8421bf67e3dc4a18298192abdf6ce79946f9c98927a587dd66be"
+    },
+    {
+      "bytes": 298,
+      "path": "release/et-v0.13.0/out/demos/docen/SOURCE.txt",
+      "served": false,
+      "sha256": "02e1aa4c965894f47b6c762fab2ff217ed25d4f27e3a31c7883cd002595a0600"
+    },
+    {
+      "bytes": 112,
+      "path": "release/et-v0.13.0/out/demos/docen/assets/__vite-browser-external-CaNKHwOj.js",
+      "served": false,
+      "sha256": "6afc5c8b626a4c923f5357913aaa2ab0fd12533498e908e74392bc630f1a00ad"
+    },
+    {
+      "bytes": 3975421,
+      "path": "release/et-v0.13.0/out/demos/docen/assets/index-CkAoefRX.js",
+      "served": false,
+      "sha256": "1a84a20d08855bc0aee8fc9a5bff6bbdf2c74ba86fcfad4f3e610c6af6e6ceee"
+    },
+    {
+      "bytes": 600,
+      "path": "release/et-v0.13.0/out/demos/docen/assets/rolldown-runtime-la_ZsWYt.js",
+      "served": false,
+      "sha256": "f4ea06660d93a34f16e01929304df53b9b5ed9fc3cfd76274c634a6a33b2e637"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/docen/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 224,
+      "path": "release/et-v0.13.0/out/demos/docen/favicon.svg",
+      "served": false,
+      "sha256": "52bb323a8ed0cdbb66126dabcd15b795ff31ec57273a1fa520e3e2d461c0e096"
+    },
+    {
+      "bytes": 1671,
+      "path": "release/et-v0.13.0/out/demos/docen/index.html",
+      "served": false,
+      "sha256": "055d2a2ecb83e1aa65b2f9a9e7b1e7dadffca9eb0fafa76d122bca6cbbf346b6"
+    },
+    {
+      "bytes": 306,
+      "path": "release/et-v0.13.0/out/demos/docs-plus/SOURCE.txt",
+      "served": false,
+      "sha256": "3ae0a064a9bd95313c1aa83094574c783b6e88b797a4cd6d834a253071466a84"
+    },
+    {
+      "bytes": 2613684,
+      "path": "release/et-v0.13.0/out/demos/docs-plus/assets/index-BrtBV5ix.js",
+      "served": false,
+      "sha256": "81b1c239a0ccd1503dd37f6732004ea7baf1033f934a4f973ad5f0821e8fff88"
+    },
+    {
+      "bytes": 29760,
+      "path": "release/et-v0.13.0/out/demos/docs-plus/assets/index-DxeprQxf.css",
+      "served": false,
+      "sha256": "9ba5e955a2e6a63ab92ce712d51fc2e05735893a36b13431fb241a3ee6d0d66e"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/docs-plus/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 1023,
+      "path": "release/et-v0.13.0/out/demos/docs-plus/index.html",
+      "served": false,
+      "sha256": "8892c4a74612c9f8a9e2b9003ac3297410074c867dc9f71e5b7355e37e4e6c94"
+    },
+    {
+      "bytes": 1127,
+      "path": "release/et-v0.13.0/out/demos/docxodus/LICENSE",
+      "served": false,
+      "sha256": "a1998f7eb856a98fa66fac2c64f0cf6be9aed7c999916d5d426272507a11dcae"
+    },
+    {
+      "bytes": 324,
+      "path": "release/et-v0.13.0/out/demos/docxodus/SOURCE.txt",
+      "served": false,
+      "sha256": "c10c4c56f9938933f18d6f531ca8781408cf4eb259b2598b58c92536309ebc71"
+    },
+    {
+      "bytes": 335892,
+      "path": "release/et-v0.13.0/out/demos/docxodus/assets/index-3q82XFwA.js",
+      "served": false,
+      "sha256": "711455ba6749f1574520680c74d23d16e37ff910036dbb6b620b2a369763f488"
+    },
+    {
+      "bytes": 592,
+      "path": "release/et-v0.13.0/out/demos/docxodus/assets/style-C8dlDIQE.css",
+      "served": false,
+      "sha256": "cba9058153587121db16fd61dce42dddf5c1bec394d7921bcdf97abcde554dba"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/docxodus/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 537,
+      "path": "release/et-v0.13.0/out/demos/docxodus/index.html",
+      "served": false,
+      "sha256": "77c671856100a950df3e755fe3f54547e6b7d9cebdcd61df948021b1ddab2754"
+    },
+    {
+      "bytes": 367893,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/DocumentFormat.OpenXml.Framework.wasm",
+      "served": false,
+      "sha256": "bae4f086161ded0fd4593826bf8b7bfb00de5f420612ea1d5fb3fb310ad6c754"
+    },
+    {
+      "bytes": 5213465,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/DocumentFormat.OpenXml.wasm",
+      "served": false,
+      "sha256": "ed6aefd97b57c33435ff4451e8396fe26b1e7c96a5fb848984d7bd503a7520f9"
+    },
+    {
+      "bytes": 5380889,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/Docxodus.wasm",
+      "served": false,
+      "sha256": "6dd4a9888b252a18d55c3191f9d4ee7cf3ec41c16531fd049d463cbc8e73ffcf"
+    },
+    {
+      "bytes": 523029,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/DocxodusWasm.wasm",
+      "served": false,
+      "sha256": "7e503f4469850a65916c9eeff7a6532ee4aef882563aa2954d030e881cbdbca8"
+    },
+    {
+      "bytes": 23829,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Collections.Concurrent.wasm",
+      "served": false,
+      "sha256": "18e9209d76a9a9828c94b07b591256475d66c1fdbcb55197b18c40602076b92f"
+    },
+    {
+      "bytes": 30485,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Collections.Immutable.wasm",
+      "served": false,
+      "sha256": "f2792316172e194bf03a285f44892df7a4962235e7020ea6d3dd609d579aa819"
+    },
+    {
+      "bytes": 13589,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Collections.NonGeneric.wasm",
+      "served": false,
+      "sha256": "d7042d40efe3e736eabd738f89e239385e06205a0ae6842d511af69457b3cb9e"
+    },
+    {
+      "bytes": 9493,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Collections.Specialized.wasm",
+      "served": false,
+      "sha256": "e83647f131221125d36a44084261fc379787e1786e1ded48e607617f028cc835"
+    },
+    {
+      "bytes": 64277,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Collections.wasm",
+      "served": false,
+      "sha256": "dcb01e6e17f00f18440fbd87f9830bb82b4f77333ec992b0515c0be0e55f409e"
+    },
+    {
+      "bytes": 7445,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.ComponentModel.Primitives.wasm",
+      "served": false,
+      "sha256": "1f8af849c8fb7a7cda74d132f2b72989f58cbdf0f0b47c9238cae04aa207281e"
+    },
+    {
+      "bytes": 45333,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.ComponentModel.TypeConverter.wasm",
+      "served": false,
+      "sha256": "4e951440da7859cce5394e3549e5907e08bbd834af5b2b4206c2687da387980f"
+    },
+    {
+      "bytes": 4885,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.ComponentModel.wasm",
+      "served": false,
+      "sha256": "f459ba180c859a26f524ba65827066a70b9affe548e5de42c0b89cb1db846b55"
+    },
+    {
+      "bytes": 15125,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Console.wasm",
+      "served": false,
+      "sha256": "6b64b08115bcaafb4f8da3cbf09860a1bde862c4533c5044fcdf1b92dc4d2a50"
+    },
+    {
+      "bytes": 113941,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.IO.Compression.wasm",
+      "served": false,
+      "sha256": "eac9e4612bf82b397360c8daf44c069bca6888657227f67db49b7e0443af9638"
+    },
+    {
+      "bytes": 88341,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.IO.Packaging.wasm",
+      "served": false,
+      "sha256": "4343d81aca397d9421bed1667fd1aa391bdc9f81814185bbe8f7adcd3304998b"
+    },
+    {
+      "bytes": 5909,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.IO.Pipelines.wasm",
+      "served": false,
+      "sha256": "4aa7698cc22bc684b826769708c141043f9102cce69bd5fb595d922c4c161da8"
+    },
+    {
+      "bytes": 75541,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Linq.Expressions.wasm",
+      "served": false,
+      "sha256": "a2c546beab9732a8f5027c8c3442095d0ab0b387f8dbc8aa63b83044b05e4508"
+    },
+    {
+      "bytes": 99093,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Linq.wasm",
+      "served": false,
+      "sha256": "b72a50f735e3faeb871fadd4371a9ba6c87344834b4830b9291895af6d055efa"
+    },
+    {
+      "bytes": 15637,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Memory.wasm",
+      "served": false,
+      "sha256": "8f3c537d83821b35efccb1ad54dd674093cee1dc92737753716aa389b1c21ec7"
+    },
+    {
+      "bytes": 139029,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Net.Http.wasm",
+      "served": false,
+      "sha256": "4fe2b59d5b755a76e4d31e6ba76625468c1321c717c551b41e9a45fa6d2252c1"
+    },
+    {
+      "bytes": 7445,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Net.Primitives.wasm",
+      "served": false,
+      "sha256": "0a4c1987e893043d14334746a54e9455ab93108d3ee3eb1dad8235529cc14a25"
+    },
+    {
+      "bytes": 12565,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.ObjectModel.wasm",
+      "served": false,
+      "sha256": "9bf1072373bf888577b2b4be4d5a86882af050486c23fe9aef87da661fd52edb"
+    },
+    {
+      "bytes": 1674517,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Private.CoreLib.wasm",
+      "served": false,
+      "sha256": "13abcfe77d3a443a01d9e00a3da88cee86ff31daa256e382be37738b44994065"
+    },
+    {
+      "bytes": 70933,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Private.Uri.wasm",
+      "served": false,
+      "sha256": "4e38f54661482b070eadf8ace16139f42f762d50e14ae4409cecf225b6dceef5"
+    },
+    {
+      "bytes": 69397,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Private.Xml.Linq.wasm",
+      "served": false,
+      "sha256": "d54e062a238722087cf3bd2a50ea07750f675456cbfc3ce866c2d81203606581"
+    },
+    {
+      "bytes": 893717,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Private.Xml.wasm",
+      "served": false,
+      "sha256": "97ef1d448ca862fb4e45ad1ffc53f378df36dd0b36c827a99b4ed12b53f71090"
+    },
+    {
+      "bytes": 43797,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Runtime.InteropServices.JavaScript.wasm",
+      "served": false,
+      "sha256": "e1ee81a5c74b4d507b9658098ec3edea4f3dbfa91ef31eec4e662a8fd8ac3d46"
+    },
+    {
+      "bytes": 7957,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Runtime.wasm",
+      "served": false,
+      "sha256": "b31e70b682a8e8f5345270aa1d6d8a23abab3b78092db7353e9d875a28dcbf0a"
+    },
+    {
+      "bytes": 25365,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Security.Cryptography.wasm",
+      "served": false,
+      "sha256": "031edbdcde66e66b350fa872419f6520a387a142e9c7d0658eea116bf92f9b1c"
+    },
+    {
+      "bytes": 29461,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Text.Encodings.Web.wasm",
+      "served": false,
+      "sha256": "7f438ea139cadb332b47422edfa59c94bb80fc64d1603a2f938a75a585f710b6"
+    },
+    {
+      "bytes": 321813,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Text.Json.wasm",
+      "served": false,
+      "sha256": "957ecffc5e24341577b7e9843184a4ecd6494d313d2d370c074bb431d7d04726"
+    },
+    {
+      "bytes": 259861,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Text.RegularExpressions.wasm",
+      "served": false,
+      "sha256": "34c8ee6648c6213581300f109281d91fb5766d9aa94d15f96f6be3eae2eca202"
+    },
+    {
+      "bytes": 4373,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Xml.Linq.wasm",
+      "served": false,
+      "sha256": "95c47d6906cd5ac662a37ed9feab5230f608c7b18ace45d38a4d5d227409a2c1"
+    },
+    {
+      "bytes": 4885,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.Xml.XDocument.wasm",
+      "served": false,
+      "sha256": "ccf5b8f47e887bea33e98b8eb4b2e87d688a962ce88227fe1f2cdbd99e03fd2a"
+    },
+    {
+      "bytes": 4885,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/System.wasm",
+      "served": false,
+      "sha256": "1ace5b022a74634ed8eeb764e02627a73ac1786a6502e7450042d410b7c1cbcd"
+    },
+    {
+      "bytes": 9450,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/dotnet.boot.js",
+      "served": false,
+      "sha256": "d502dd25378fb7dc81e7421a1e5e7568af919b111f9acf8eb5b401951f6f85fe"
+    },
+    {
+      "bytes": 37884,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/dotnet.js",
+      "served": false,
+      "sha256": "31ead4c606a1a12c9f02f851501f561dae5b1501d0444d6908dd8ba29e1da80b"
+    },
+    {
+      "bytes": 224345,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/dotnet.native.js",
+      "served": false,
+      "sha256": "2f2a44f48e3862a0b6235086f7f3e1ff4e9e17dd36aa15f9b2e7228edd8c360b"
+    },
+    {
+      "bytes": 10599694,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/dotnet.native.wasm",
+      "served": false,
+      "sha256": "2f8fb7230f7aedf56f6c71a211dd531d66508323d6c9af7c72fae640f0f7ef06"
+    },
+    {
+      "bytes": 198480,
+      "path": "release/et-v0.13.0/out/demos/docxodus/wasm/_framework/dotnet.runtime.js",
+      "served": false,
+      "sha256": "ff774183db23d722c3de1d0f0cc1e73545d6b3fdb35b020c133a26d57cf7438d"
+    },
+    {
+      "bytes": 331,
+      "path": "release/et-v0.13.0/out/demos/eigenpal/SOURCE.txt",
+      "served": false,
+      "sha256": "5a8713f6faf082ae375df3c56510dca78f649713f6542a2e9e4642cb254797fb"
+    },
+    {
+      "bytes": 5090594,
+      "path": "release/et-v0.13.0/out/demos/eigenpal/assets/index-51ryC6qj.js",
+      "served": false,
+      "sha256": "11369a0c275528b8f70a3a7bb7447974cb989006c8a41e757dd33f567d40b111"
+    },
+    {
+      "bytes": 167419,
+      "path": "release/et-v0.13.0/out/demos/eigenpal/assets/index-DjrG3Qoi.css",
+      "served": false,
+      "sha256": "3c357a93ff414a166b3e375ceccbe87c0a661d59f348dd79b36c333467c4f392"
+    },
+    {
+      "bytes": 3010,
+      "path": "release/et-v0.13.0/out/demos/eigenpal/assets/preload-helper-DDqTjD1V.js",
+      "served": false,
+      "sha256": "54ea5a6b80a7920e71d76250c39c355517bba502ef3a9354a0f443c5a73a2a2c"
+    },
+    {
+      "bytes": 980,
+      "path": "release/et-v0.13.0/out/demos/eigenpal/assets/rolldown-runtime-ClPy5LxC.js",
+      "served": false,
+      "sha256": "7593cbfc8f8dd5f1c6309b50c5959730770ec049a0f8bf669dd7b462fa61649a"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/eigenpal/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 242,
+      "path": "release/et-v0.13.0/out/demos/eigenpal/favicon.svg",
+      "served": false,
+      "sha256": "64bd54529266c6ed3cbea55feacdb4d90c9f7863b002412d5836baceb35477e6"
+    },
+    {
+      "bytes": 956,
+      "path": "release/et-v0.13.0/out/demos/eigenpal/index.html",
+      "served": false,
+      "sha256": "2260fd629d9b62dc3f6f6977ee645412bccfc5a40069e533e9598209a3fa5dc9"
+    },
+    {
+      "bytes": 4253,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/AAUGnMkM-7VT7VYHU.gz",
+      "served": false,
+      "sha256": "b5d08daae3a5b38066bd4bd3755a8d83335ab4865b0fd3d1da12890822a6e2bd"
+    },
+    {
+      "bytes": 4040,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/ACqCzngw-V5PB4B2Z.gz",
+      "served": false,
+      "sha256": "05c21763a4fdc01a3deda92f1b7c2b672fc9c82c9490f58207ff32aeea68e364"
+    },
+    {
+      "bytes": 128858,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/BIDrLgVF-GLHUEU6N.gz",
+      "served": false,
+      "sha256": "384150256821269dc42b57d01b0eb70cfe6a35442ff09298b3f9a8113554f334"
+    },
+    {
+      "bytes": 3450,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/BMmxKFIm-N733L3C2.gz",
+      "served": false,
+      "sha256": "7b3c060cc9dc02b97e83e72e89d5fb1ddd6f31053d9034cf3331e2dae470bf46"
+    },
+    {
+      "bytes": 3735,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/BfEpISQH-A4GPT4CR.gz",
+      "served": false,
+      "sha256": "23cb18cda79330cb741285a12bf6c01e439a53a68b92e748356d45db5026398b"
+    },
+    {
+      "bytes": 143682,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/CADpWrSR-BQCCTYHS.gz",
+      "served": false,
+      "sha256": "b57ec4517a677366e35bcb43d1b8d75193299e708b3e20b93db8101d14b712d7"
+    },
+    {
+      "bytes": 4030,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/CvDJUzax-I345YSPL.gz",
+      "served": false,
+      "sha256": "80bd557710d8638db9dfc8130951fb3d0752ec5b9882e7e9599b82e83f0a0172"
+    },
+    {
+      "bytes": 3573,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/CyTILgKF-YIMTNTPF.gz",
+      "served": false,
+      "sha256": "8464ecc7529b06a4231865dafde1de31c873fd411b403964914308f0a7552d66"
+    },
+    {
+      "bytes": 3690,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/DDuOiZDz-TH4A7DBW.gz",
+      "served": false,
+      "sha256": "0ad0dbca188559e2a300a6210b0dd7863284a1d59d8c4799780eaa81cd1a9901"
+    },
+    {
+      "bytes": 3989,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/DKRgpRhf-XRZ57DWR.gz",
+      "served": false,
+      "sha256": "85d684f63fa00a31d3737e3ef5c765c3263aa23013d9d433a258fcc70cc0a873"
+    },
+    {
+      "bytes": 3715,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/DPjCzyFk-I2L5Z5YO.gz",
+      "served": false,
+      "sha256": "c9ec515eff2f918708d629a91386b6abeec4812e539ba509cafdde049893d9f0"
+    },
+    {
+      "bytes": 3600,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/DShadhUB-Q2U4OTUQ.gz",
+      "served": false,
+      "sha256": "3c3043efc57c66dcf22c0e0e5930ce205198e8389ffbfb764f414392c4c94dbd"
+    },
+    {
+      "bytes": 3488,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/DazjMeUV-UMORTKNR.gz",
+      "served": false,
+      "sha256": "1d7b0a4c3c658e4517e95a15e0fa6838e3f6e958ed76d1430aeb9047bc0268a3"
+    },
+    {
+      "bytes": 3927,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/EqCOBOeM-YBJISCL2.gz",
+      "served": false,
+      "sha256": "cc294481c61966aec31564ef8af96702548b7e4db21f76656dd86b12dd322471"
+    },
+    {
+      "bytes": 129716,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/FKULDrfr-EDFOJXXY.gz",
+      "served": false,
+      "sha256": "3452a10f5bda7919887a6f73a66444246137b45057d5052b7f75efae1aea1fcf"
+    },
+    {
+      "bytes": 3592,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/FMPMvHQJ-CLBV6XSX.gz",
+      "served": false,
+      "sha256": "3c04c7be5f56c447c925362e7c0186240cd6e1158bb2b74f51749c41a8e4e85c"
+    },
+    {
+      "bytes": 4101,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/GcJuGGYw-FQIZR33L.gz",
+      "served": false,
+      "sha256": "e1c84a1faee423119f9aad71babd8f5f734e48471fd26901dae9327991bd5e5a"
+    },
+    {
+      "bytes": 105225,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/HLYIaAaH-A5IM34Y5.gz",
+      "served": false,
+      "sha256": "25d96580630c5e7fb5c3ad795db00de9dd68c6f4189f9776b918c13e0ab1f7dd"
+    },
+    {
+      "bytes": 3338,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/JFBaoSMz-BXPTE67F.gz",
+      "served": false,
+      "sha256": "80284c7f24d7b76ccb551f23a16939f1fb5ca83390d1b8f0667bcd36d6e47f56"
+    },
+    {
+      "bytes": 34500,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/LICENSE",
+      "served": false,
+      "sha256": "60c66d170d6d9ef655c1f072f5cd681c9d8f5cecbca1257bd145f95c97409565"
+    },
+    {
+      "bytes": 4307,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/LLRIcojU-BFO4OEQ2.gz",
+      "served": false,
+      "sha256": "84007493abacbc7b9b7bb7bf0372379be6cb714fe909747dc7f3e2763627191e"
+    },
+    {
+      "bytes": 116815,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/LaNoQkPW-KVXD3ZHG.gz",
+      "served": false,
+      "sha256": "1b9d3c46fc19122cfad104993d67cf74e4abc5551f95c0ac25bfacc58d5d9477"
+    },
+    {
+      "bytes": 3950,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/LhveWLEj-QHTHSH7R.gz",
+      "served": false,
+      "sha256": "36fcb1f7367412a1f8722c87a4e4e3ea0bc01f03e22395841f0af9a6b120fb99"
+    },
+    {
+      "bytes": 4055,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/LwjxHIiv-QJ6CGAM3.gz",
+      "served": false,
+      "sha256": "edac506a932d79c747a5e7596e615b7bc4be60d576c92192d0b6b5b286dbb0ae"
+    },
+    {
+      "bytes": 3951,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/MCPltiSk-UFMFSUAZ.gz",
+      "served": false,
+      "sha256": "095b638031bf363778c683634bab2e4e95e56ef0da7a3e17884aff63f3dcf04f"
+    },
+    {
+      "bytes": 4304,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/NfJVbjqA-AM7OETYR.gz",
+      "served": false,
+      "sha256": "48a0f8ce40aa28fe74fa8f76b7d8342cfe0bd4bb0cb5775d0fc9af76fc84fc71"
+    },
+    {
+      "bytes": 3729,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/OUffZiem-E2J4UCO3.gz",
+      "served": false,
+      "sha256": "8df030e18311eefa0341f7169693b1f4fa7dc91fb3c0aea787aad1ce3ee5f784"
+    },
+    {
+      "bytes": 3777,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/OixdjCTP-IMYFGVKB.gz",
+      "served": false,
+      "sha256": "0bef0a3738fdfbbc271b74d58023565adb3b97fd27d8c26a37cf4548c58e9533"
+    },
+    {
+      "bytes": 3767,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/PYJMDIRj-LYPE4273.gz",
+      "served": false,
+      "sha256": "877a63f8943e60f8c30fc3b6ebe48e43dde2f68486d994a4f70580083a126a39"
+    },
+    {
+      "bytes": 116881,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/PwcTjpFD-C3VAZUDL.gz",
+      "served": false,
+      "sha256": "8b0db349ed72fce33a0893b4f48b5f9e7e5c899c209a3fdbcd0ef14054350b0a"
+    },
+    {
+      "bytes": 3950,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/QNrAJTPK-4S7Z6NQ2.gz",
+      "served": false,
+      "sha256": "da1fff861d8c5657691af049d7d0c974e91c49e09b786784be6cdb0e013b2cf8"
+    },
+    {
+      "bytes": 4291,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/QPevVdIU-CZ33QC3U.gz",
+      "served": false,
+      "sha256": "0b4126717717b010bac64e3902d67842c32eb3240baaa788a51e8756d579d37c"
+    },
+    {
+      "bytes": 3612,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/RirwooPz-KQSCXQD5.gz",
+      "served": false,
+      "sha256": "4713e35f9473af6a0ee0418b67e612db3279ef00c07ebca13bd9e9994f8b580f"
+    },
+    {
+      "bytes": 143284,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/SAKgcJRO-NQAAVL37.gz",
+      "served": false,
+      "sha256": "ae8530d013695c7e8f6d9f6b602a29bc2349268d97f68ebda1abaad6150ca791"
+    },
+    {
+      "bytes": 330,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/SOURCE.txt",
+      "served": false,
+      "sha256": "123bf3eeea079040140e3f8e43121e8eb0121953e46857ac75cd34c7d05ff86e"
+    },
+    {
+      "bytes": 143410,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/SRAcsMMk-DFJ3JGRA.gz",
+      "served": false,
+      "sha256": "a9f9a6c0c2c6d0c7f305ccd968cfb619d8817756a283df435f9284169056dd30"
+    },
+    {
+      "bytes": 3693,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/SkDyEtTz-MGIUSHKN.gz",
+      "served": false,
+      "sha256": "0dcec572977aff1d8a23e02f06d34bc4537ea9eace368510b4be992bc058b845"
+    },
+    {
+      "bytes": 3965,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/SqLizBcx-6YIOP7KU.gz",
+      "served": false,
+      "sha256": "1165e267a17f1cac4dae85338a9b5f4a8cff6b199360238d77cfa97c0e7183c3"
+    },
+    {
+      "bytes": 3947,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/VTNgdWoI-226K2YEU.gz",
+      "served": false,
+      "sha256": "787ea7781e59ee2109ecb463f8215f995ce3b0c924d5d9aaa9196ed0bd6de993"
+    },
+    {
+      "bytes": 122867,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/VYmuZfcU-KNG7GX6H.gz",
+      "served": false,
+      "sha256": "b3af0987d2c98b5adb03571441268c642be907cc34849ce9dd1fe4604913f4da"
+    },
+    {
+      "bytes": 3683,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/VmlOqVpT-ZO7OPH63.gz",
+      "served": false,
+      "sha256": "01d7dce1ac12d068a548a690324ebe31b5e7a9fc77a850fea6ab7fcf90f23d61"
+    },
+    {
+      "bytes": 3996,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/WgGLPGJH-4I3725XG.gz",
+      "served": false,
+      "sha256": "6cde3e2271a3981b1d4c37fd098c3b0e593ef068b989b3065a052d486818ffce"
+    },
+    {
+      "bytes": 3916,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/WiKWpqdg-7H2CG2AW.gz",
+      "served": false,
+      "sha256": "e73a575f6ce9a1b6dbfbfe12295259cf003a73882559657c56c4ac37a1b8fec7"
+    },
+    {
+      "bytes": 131572,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/XPFyzZFL-LPZGWE5S.gz",
+      "served": false,
+      "sha256": "65b1ebf652bb293abb756dafde37a53b6ebfbed35c6ab31f297081556276fd32"
+    },
+    {
+      "bytes": 3557,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/XdtlblEj-7WXFLW3G.gz",
+      "served": false,
+      "sha256": "ed9e9d0776d38d00c49556c3185eda91554330393c7bb3ef90f80b31fe895e97"
+    },
+    {
+      "bytes": 3333,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/YhvTiOfx-EQX3AHLM.gz",
+      "served": false,
+      "sha256": "0a95bfafa01bd330e41fd298b5b8a7d285d9ed6e4aba80eed8a700676f25d778"
+    },
+    {
+      "bytes": 3872,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/aTmDHOZe-4NORBICS.gz",
+      "served": false,
+      "sha256": "4f57efdd4d27f412871a3f9125ab35729a0786e429fc585d900d173e9373e084"
+    },
+    {
+      "bytes": 4305,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/azQrwRpb-CY3P2PSX.gz",
+      "served": false,
+      "sha256": "e832f252547bc1b55c66c4daf43a9cd873cca3cf95ea065ae961ad6da92eab50"
+    },
+    {
+      "bytes": 4249,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/bYMdtnbt-KEP7O7ZE.gz",
+      "served": false,
+      "sha256": "bbf55c9aa98e27b830a2b6020cd2d4505835f2d674d2e504f33329be262db57a"
+    },
+    {
+      "bytes": 97948,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/chunk-QWM4J6D5.js",
+      "served": false,
+      "sha256": "9e690968fe9055ee918553d77a16800eb82493993801037bd9d45f336ab88799"
+    },
+    {
+      "bytes": 976,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/chunk-RJ2R4FVC.js",
+      "served": false,
+      "sha256": "b8a825901b4121d201bf477b09d127f3b0dbe7d04d55019f08cdabebaf58d608"
+    },
+    {
+      "bytes": 364600,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/citeproc-core-c1ffe8b4-Z43CXUG5.js",
+      "served": false,
+      "sha256": "6573db120a63c4b7b6f4aad62f4424c155225827402b90c99cf2b8b9b23aee1e"
+    },
+    {
+      "bytes": 13728,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/css/document/document.css",
+      "served": false,
+      "sha256": "96603b29a4761951581269a740e2ae1f5c091179f704f5d0e38dc60d2a58ab63"
+    },
+    {
+      "bytes": 277828,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/css/document/fonts/JetBrainsMono-Bold.ttf",
+      "served": false,
+      "sha256": "5590990c82e097397517f275f430af4546e1c45cff408bde4255dad142479dcb"
+    },
+    {
+      "bytes": 273900,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/css/document/fonts/JetBrainsMono-Regular.ttf",
+      "served": false,
+      "sha256": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f"
+    },
+    {
+      "bytes": 4399,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/css/document/fonts/LICENSE-JetBrainsMono.txt",
+      "served": false,
+      "sha256": "30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad"
+    },
+    {
+      "bytes": 510796,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/css/document/fonts/LibertinusSerif-Bold.ttf",
+      "served": false,
+      "sha256": "dc5c00822f0d248256dbbe9fea8e68153e90c0dd7f95c906ed667b2ce053b415"
+    },
+    {
+      "bytes": 506340,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/css/document/fonts/LibertinusSerif-BoldItalic.ttf",
+      "served": false,
+      "sha256": "8d7406b1e84e4ee1a658289139d16de75ee4380a2309dce2e4d68704b1d8cfe8"
+    },
+    {
+      "bytes": 605956,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/css/document/fonts/LibertinusSerif-Italic.ttf",
+      "served": false,
+      "sha256": "c8d62202ff921968c491bbbd05f9794213e98e1317c8cbf5edc1d8043f4a21d6"
+    },
+    {
+      "bytes": 603444,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/css/document/fonts/LibertinusSerif-Regular.ttf",
+      "served": false,
+      "sha256": "81ea17858245163742c9f5ddf19e9c54667ee5e026708556fb1bf5dce7f92fae"
+    },
+    {
+      "bytes": 1753,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/csxRnVwx-RHPX4IYW.gz",
+      "served": false,
+      "sha256": "eadf0428200224cb9c2483532460479089f6982d35245827fda7ac6f7c64cace"
+    },
+    {
+      "bytes": 136803,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/cuIUAOkI-USIUFGZU.gz",
+      "served": false,
+      "sha256": "654fdf88f4ae8f5b0056d076f4c6f7f2d63bba24088186735d6c9e563ca28d81"
+    },
+    {
+      "bytes": 3994,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/dfTjvLZW-X3WAWIMC.gz",
+      "served": false,
+      "sha256": "da0f95bc7e2166544fca0b4f10905ffa775b07366fd7dc7df6a559073aba5243"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 1255,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/docx.css",
+      "served": false,
+      "sha256": "e0130f8593e69a8f8fff403c81c70131cf021d976e0e3512b17e9cac3b1b9171"
+    },
+    {
+      "bytes": 140274,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/eKwZBRsy-PDRR5QJD.gz",
+      "served": false,
+      "sha256": "81b467aa847ac49005a23abf22daa126acce355f190fe061d07b84eed310195d"
+    },
+    {
+      "bytes": 3610,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/efMSCbRB-LBO5UZBF.gz",
+      "served": false,
+      "sha256": "51b7f45160bf93673448eae4186ae060cf3caf42bbae07d7e273e6f3a30af194"
+    },
+    {
+      "bytes": 3672,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/erhQTSbw-7U467RGI.gz",
+      "served": false,
+      "sha256": "7fd0894659e14f3f0a9d83f383db427abba48d8ab1361323d6b13d6a6d590246"
+    },
+    {
+      "bytes": 3714,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/fczWnCKu-VKD3NSYD.gz",
+      "served": false,
+      "sha256": "b26a5094fffd726f041354aac717f1b82737d6a92628e5aacdb15b62a1f1386e"
+    },
+    {
+      "bytes": 3666,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/flCfyWyX-62TJ3KXM.gz",
+      "served": false,
+      "sha256": "7302968567ff6a846bbf17b422124d8ea30b07fd9dbde4fffc627b8b34f61fe0"
+    },
+    {
+      "bytes": 3693,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/fxrAEuNB-KWQZRQZQ.gz",
+      "served": false,
+      "sha256": "44f98eae5db3b1fecf198e4cc58431b841addc508300a2b51f1c2e92f61b3dbc"
+    },
+    {
+      "bytes": 3917,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/gTRtSEyB-LRW3NUK2.gz",
+      "served": false,
+      "sha256": "2e3e0405c9eae0c218c9bf31e0fa23551bfc5b7db3851817e7260806d452b643"
+    },
+    {
+      "bytes": 3389,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/ggSBjJQb-RU33FKZL.gz",
+      "served": false,
+      "sha256": "f5a2927e98e27e7cf6d23775e6d6372e514cce26d857ec1c1bfbb2fc8630a719"
+    },
+    {
+      "bytes": 128143,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/hJZoubTU-RJG2XAJF.gz",
+      "served": false,
+      "sha256": "e7d392c293e680f337a435be002ec57225be57cfdaa4fd7b3dd9cf8826eafd62"
+    },
+    {
+      "bytes": 3806,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/iIutQqSx-RQXVIIHU.gz",
+      "served": false,
+      "sha256": "aa1c17192845427b7a755d3192b0c3d0ee8bb3811c7877c442db51d733670f69"
+    },
+    {
+      "bytes": 747,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/index.html",
+      "served": false,
+      "sha256": "95c0e1ae299a8001187fe04c119914778c67366b62d2f858bc908c05514bae4a"
+    },
+    {
+      "bytes": 1427936,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/index.js",
+      "served": false,
+      "sha256": "685b4a40043df23ef970a52a6dbab2a158e3141486963c85d1ce8748fe94f441"
+    },
+    {
+      "bytes": 3436,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/jarapopo-R7TKZPQY.gz",
+      "served": false,
+      "sha256": "15caae648552d26c6477dbb6c0c616161d258c65833f0b41bc7b0dcdd2b4eccd"
+    },
+    {
+      "bytes": 83,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/jszip.min-NNC2DT4J.js",
+      "served": false,
+      "sha256": "243dbe7e2e6bfa8c921e96a10bac190a24686e3ba5159c2f5cbcba7aacf96870"
+    },
+    {
+      "bytes": 123529,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/kxAuyDSI-HYMC23YF.gz",
+      "served": false,
+      "sha256": "14ab9f5db5d14170aa53830f2b215adb773d48c5298dee1d6c327277f4a72f67"
+    },
+    {
+      "bytes": 2659,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/locales-ff3a8fea-R3J2SMNK.js",
+      "served": false,
+      "sha256": "d7f30da44b840e690c64e0ac2b05255faea010c672324b7f03eb7c9c2259c631"
+    },
+    {
+      "bytes": 2233,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/locales-node-de6c84d8-PH465AIB.js",
+      "served": false,
+      "sha256": "03fd59068142bedac9f1ae1b85e6438faf298dbd4249e73207270462cf63bc2c"
+    },
+    {
+      "bytes": 136189,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/mXBKvElr-XFPQW53I.gz",
+      "served": false,
+      "sha256": "f0026a82cf6de35ae78662091aacdff305dafe2668de8b1a502f846bd6580368"
+    },
+    {
+      "bytes": 839276,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/mathlive.min-7XZEPDS3.js",
+      "served": false,
+      "sha256": "b228ee216acb762cbd5be872133a88ba6d463c935a328d4661ec658c10e744c5"
+    },
+    {
+      "bytes": 114429,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/nEItMniF-36QZNDX7.gz",
+      "served": false,
+      "sha256": "9b0544758f1d6fb93332fb9d382339236edd66080efb7142c15bc59e3077d28f"
+    },
+    {
+      "bytes": 4104,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/oZXXYlqH-4HYHJXLK.gz",
+      "served": false,
+      "sha256": "2eb9b231ef88a85606d19c3126e0fa3c98376c4748a243cb7ce94c954f0d31b5"
+    },
+    {
+      "bytes": 3831,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/omrsqWSc-VJAURXRW.gz",
+      "served": false,
+      "sha256": "0818106106788bb5c0aec8f8061eb717aee5ac812486e72c9d3ce7b56f5128ea"
+    },
+    {
+      "bytes": 139334,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/pNQiqHAo-XYP6WBLL.gz",
+      "served": false,
+      "sha256": "f4b5242514e6230dccddfe689556aa671e55112a9ae7b84cd7ed20393a71dba2"
+    },
+    {
+      "bytes": 3679,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/pjOGokiV-Y6L7JJCN.gz",
+      "served": false,
+      "sha256": "12dd9c7ccfb2c886bf86e36b97a1daf3aa82823d8e5518d7f72a596a31ba74c9"
+    },
+    {
+      "bytes": 4103,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/qWoIHFmn-YMJLY4QE.gz",
+      "served": false,
+      "sha256": "ce17a199caa4f974703ce98d01cfe4e9d1ef3ca921f621cb9602d5bbd0e8f6f2"
+    },
+    {
+      "bytes": 4296,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/qkaaIVsN-7BMNITXE.gz",
+      "served": false,
+      "sha256": "2794a4cbabda9477e5c397f45f0986f2919e2cf5e4e4a4c484fea47751a27078"
+    },
+    {
+      "bytes": 4130,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/qoBVxVAF-TPLNDBO5.gz",
+      "served": false,
+      "sha256": "4b2b4fbd3a69b2fc0676c40105e5f063c05340406fa2d47f4c3f104adb4ea593"
+    },
+    {
+      "bytes": 3896,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/qvWtFrCZ-Y76G467M.gz",
+      "served": false,
+      "sha256": "5e594f8a211cb2c6d8622632eeffb1d2333df543122cff3bc642d40c4408ecf6"
+    },
+    {
+      "bytes": 127598,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/rICYORNH-2KJLEKTZ.gz",
+      "served": false,
+      "sha256": "b4c00117396cacbb61934ead281f4040fffc31af55e1b80fbc6c15e6cba826a9"
+    },
+    {
+      "bytes": 134489,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/rgxcyIcA-D3HSUZB5.gz",
+      "served": false,
+      "sha256": "bd8e2a0ee5dca386f799a397b739501c372e0e6170f11622dd5e61f5cd55dd17"
+    },
+    {
+      "bytes": 3857,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/sYfcvHLx-TKBQY5ET.gz",
+      "served": false,
+      "sha256": "ff5ab7b870940e75dee0bc462eb85ca15890ba68ee803144d9149765d2d643a9"
+    },
+    {
+      "bytes": 117291,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/smVRXvXl-S7VBY6O5.gz",
+      "served": false,
+      "sha256": "23a7cee77856a8b314cc1958c4757de2faf4c70e54479cb5f2bee65ded3e8f52"
+    },
+    {
+      "bytes": 330172,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/styles-b896f386-O3BDBPH3.js",
+      "served": false,
+      "sha256": "b488ac240291edd810f5a3e52d3cb4cbcd8f49f808073bd96388c179f1bbdbec"
+    },
+    {
+      "bytes": 389400,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/styles-node-fee02f21-52D3KS3I.js",
+      "served": false,
+      "sha256": "a68d065299fdc67362238d2b40f53391532d1a7c95ad1f8d7756025dfe827eac"
+    },
+    {
+      "bytes": 125099,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/ttEJyVdX-VEMEDZPI.gz",
+      "served": false,
+      "sha256": "43cf819d6085e914e7000c080979020b447a6644b610bcc81f7cfa31559479b5"
+    },
+    {
+      "bytes": 3906,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/uQngyGdj-ASJVWQ27.gz",
+      "served": false,
+      "sha256": "d294809bc0fea36242b556236b29208596d3d2837408d2fdd78e99208b86aecc"
+    },
+    {
+      "bytes": 111353,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/vGpgyHvf-MRVUQ3QO.gz",
+      "served": false,
+      "sha256": "11ec48baaf6d54061d3e61ac495ebd8373dc8983acd082dec46e371f8638f961"
+    },
+    {
+      "bytes": 4097,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/vIROmgvE-QTBYSB4Q.gz",
+      "served": false,
+      "sha256": "734155aabf8fe35c4f8bfe016d7e6a53ca053e04dd734725f934f34913c61a7c"
+    },
+    {
+      "bytes": 3477,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/vNMajCnj-3C2QOPFL.gz",
+      "served": false,
+      "sha256": "0e103f7d4da061da4ef86a5235520f61215dc8f0562027a4fc15f5032350793e"
+    },
+    {
+      "bytes": 134522,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/vPaWzmQS-3KKMRQ55.gz",
+      "served": false,
+      "sha256": "5c8c9d99c40b9378af58e72db6d4869e807ab3fbd9921e9dff59c39d46de1b21"
+    },
+    {
+      "bytes": 3936,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/vkfzcStX-WLDNAFJN.gz",
+      "served": false,
+      "sha256": "0ec6fd728ce4456a85dfff00c78168c59ffddf654f203e53b590d6052bacab52"
+    },
+    {
+      "bytes": 153036,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/wtKEuTuW-PP7SWUN4.gz",
+      "served": false,
+      "sha256": "c8cdf1ce1f1c34e180b0a418f4e0903cf4c353226763924291c518484889fdc7"
+    },
+    {
+      "bytes": 122434,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/xXMUHryF-VSNA6QIE.gz",
+      "served": false,
+      "sha256": "80d75437ac1e7b23995f7cf95a2ffefbc746658ec0c1488c3397a41c9fb574e1"
+    },
+    {
+      "bytes": 3660,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/xXWnxAQv-C5BUBA54.gz",
+      "served": false,
+      "sha256": "77442c432a6f3087163c6b4128dfac111f81739147dd899181c0152f5abd87de"
+    },
+    {
+      "bytes": 3942,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/xvWaJGzf-P7UBNQKZ.gz",
+      "served": false,
+      "sha256": "4fb474fc751996e1eda881943d248d9264d9634fcaa853699c456fbdb825ec10"
+    },
+    {
+      "bytes": 3887,
+      "path": "release/et-v0.13.0/out/demos/fidus-writer/zfpDuzUw-QYUP3GM5.gz",
+      "served": false,
+      "sha256": "2e68cb410051f6762820c1027de39e9e70a2c4e60fee8fb2be0e57e100e30562"
+    },
+    {
+      "bytes": 11358,
+      "path": "release/et-v0.13.0/out/demos/folio/LICENSE",
+      "served": false,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "bytes": 1342,
+      "path": "release/et-v0.13.0/out/demos/folio/NOTICE.md",
+      "served": false,
+      "sha256": "7cd9efac1521ad9bfb381ddc45700c0086691140269ac82472e77dd770f42f77"
+    },
+    {
+      "bytes": 302,
+      "path": "release/et-v0.13.0/out/demos/folio/SOURCE.txt",
+      "served": false,
+      "sha256": "3474141472c21fb0e832fa722737c0e4359999655c5d8c47a4b93f5310186221"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/folio/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 145582,
+      "path": "release/et-v0.13.0/out/demos/folio/editor.css",
+      "served": false,
+      "sha256": "cf2b9e60b594d7a3080ad9642694a399022ea5f39ac684346b5eabc1cca3ff77"
+    },
+    {
+      "bytes": 4999885,
+      "path": "release/et-v0.13.0/out/demos/folio/editor.js",
+      "served": false,
+      "sha256": "070bfc6fe9f495c970f8c79d4230ab3bef611c4e411f5431be5e225f5d18e423"
+    },
+    {
+      "bytes": 6613,
+      "path": "release/et-v0.13.0/out/demos/folio/editor.js.LEGAL.txt",
+      "served": false,
+      "sha256": "dd38f114b602add18f4851498aa8164b06e1da87fb30ce00fa8514b6c1342683"
+    },
+    {
+      "bytes": 8588,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-cyrillic-400-italic-2OVSVJRZ.woff2",
+      "served": false,
+      "sha256": "e616d465f9ea89469b0916c065a1d6f42e1726a4a4998587e531d887c170c9b4"
+    },
+    {
+      "bytes": 7328,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-cyrillic-400-normal-XLOWBQJL.woff2",
+      "served": false,
+      "sha256": "88f37d27f1d9544d18ecd1439cbfce2fde3c47503dcb5c0937ed40245c69c018"
+    },
+    {
+      "bytes": 8524,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-cyrillic-700-italic-PEN4GPSH.woff2",
+      "served": false,
+      "sha256": "37dd6ebd79a50a6bae17b746fa58bec38ec8acabb262b38a71ea5700c2029806"
+    },
+    {
+      "bytes": 7340,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-cyrillic-700-normal-3KHBZCAP.woff2",
+      "served": false,
+      "sha256": "9bd0b4043023f2ac73538b93700efdc0c4e3a4b73a8a3e2af6cce5b6ee388425"
+    },
+    {
+      "bytes": 23564,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-cyrillic-ext-400-italic-63XEEO5K.woff2",
+      "served": false,
+      "sha256": "7edba818a4954547fc7d8cfd5878bc48d1305893be938e0e0b4b2acbe0b90623"
+    },
+    {
+      "bytes": 20128,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-cyrillic-ext-400-normal-B4WRT3VV.woff2",
+      "served": false,
+      "sha256": "1764e464c54804897e353645a277e3513b309a7f4dc18265fa0f1caccbda4f6a"
+    },
+    {
+      "bytes": 23528,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-cyrillic-ext-700-italic-EJAKRYMK.woff2",
+      "served": false,
+      "sha256": "60c943910fce1177f8d6bbeb604463f6b4d4b98e66f727d325c1c9432bbf6f63"
+    },
+    {
+      "bytes": 20388,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-cyrillic-ext-700-normal-VT7GYVTB.woff2",
+      "served": false,
+      "sha256": "89b4fffd05b5b03641153f516492077d29049d1584ecbdc064cdf5e2a9eebaf1"
+    },
+    {
+      "bytes": 10120,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-greek-400-italic-6EZMKUGH.woff2",
+      "served": false,
+      "sha256": "6e9803689ced5e508a3b28a7fdd28c6913cfc3d0b48ee23d52230f8b8f5352d9"
+    },
+    {
+      "bytes": 9092,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-greek-400-normal-CBE7MP7O.woff2",
+      "served": false,
+      "sha256": "4754a2265adc3b539670d996a1b5d19d7e5168b10bd6803ccac03d7a0b982da7"
+    },
+    {
+      "bytes": 10132,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-greek-700-italic-DUBHZ7SR.woff2",
+      "served": false,
+      "sha256": "1724e5cafe03779f05bff08b1b7173ab14135ea6986179dc61487f0e0d4fac0c"
+    },
+    {
+      "bytes": 9048,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-greek-700-normal-6VWMAUYX.woff2",
+      "served": false,
+      "sha256": "0b6b8cb692d8ab819ccf9c866d9d879f8a115a6cbec74b730f0c8e2eceeb4d9d"
+    },
+    {
+      "bytes": 5116,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-greek-ext-400-italic-DUMRC45A.woff2",
+      "served": false,
+      "sha256": "49a30189dfae8f94d8f2d1b46841a37da128206a4d768b135316a62ca52d16e6"
+    },
+    {
+      "bytes": 4568,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-greek-ext-400-normal-KTYEDNB4.woff2",
+      "served": false,
+      "sha256": "183757d239bbeddfe92eee1732283e9456123ceeb3f15f2a1c177cb71dabddc9"
+    },
+    {
+      "bytes": 5012,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-greek-ext-700-italic-XTAELVS6.woff2",
+      "served": false,
+      "sha256": "d6ad762c9b9f8008d77941f78164d6930326f27196a3aebc7ad21459b9bbf56a"
+    },
+    {
+      "bytes": 4504,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-greek-ext-700-normal-5XQNGGUL.woff2",
+      "served": false,
+      "sha256": "59c01dbc120cf57714f76b312597a551efa5808ec3b532ea3ac984d98a7fd0af"
+    },
+    {
+      "bytes": 8256,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-hebrew-400-italic-6XMNLDJ2.woff2",
+      "served": false,
+      "sha256": "1ecd91fcd26cb61b8d1699106bbafa688dada5b41e0663cd6009250e9ad9fdbd"
+    },
+    {
+      "bytes": 7720,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-hebrew-400-normal-QB3STLXQ.woff2",
+      "served": false,
+      "sha256": "2ba360f7455a399d8e97fc817750c702855dfa6c0a4e67512264226d63769141"
+    },
+    {
+      "bytes": 8428,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-hebrew-700-italic-GXKG5256.woff2",
+      "served": false,
+      "sha256": "b52d5bc63e39742f52099e57492abfc2da288969f8a8c7993dec2123ad6b2f09"
+    },
+    {
+      "bytes": 7788,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-hebrew-700-normal-BFHEIQQZ.woff2",
+      "served": false,
+      "sha256": "1e9f3118bde68f5a34111b36049fd24768e6185a7b19e576d5801d71e7defca0"
+    },
+    {
+      "bytes": 12380,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-latin-400-italic-AENGC2NT.woff2",
+      "served": false,
+      "sha256": "56da61898ceaf4ffec05922232ef957515d6debdae5bcb952667a46b6af5cd08"
+    },
+    {
+      "bytes": 11456,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-latin-400-normal-WHD5LRLF.woff2",
+      "served": false,
+      "sha256": "c1f056f51c99a65aca53a0a80e71e67916dd7a8ed2423cd11f52193241440b20"
+    },
+    {
+      "bytes": 12392,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-latin-700-italic-Q2OTG6WP.woff2",
+      "served": false,
+      "sha256": "585caa2d533eff8554785869fc41a802a6865c243a83e1b5d210eb18125c032a"
+    },
+    {
+      "bytes": 11484,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-latin-700-normal-JEQJUCSL.woff2",
+      "served": false,
+      "sha256": "181215e08de9ce411e8c9e628eea6ea8bfa45de2a955ee57fc970dd8a080a3f6"
+    },
+    {
+      "bytes": 60108,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-latin-ext-400-italic-EI7BDTAC.woff2",
+      "served": false,
+      "sha256": "9f8888b1d8eede840c1e8cf2f1e30ac675a12bed3ee835295822ecd73262a7bf"
+    },
+    {
+      "bytes": 52128,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-latin-ext-400-normal-IQWC5GSF.woff2",
+      "served": false,
+      "sha256": "3aa939fa388033f207a6c594115ec80f5aceba5c8a071606480293a3e4969332"
+    },
+    {
+      "bytes": 60432,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-latin-ext-700-italic-LVT4BM2W.woff2",
+      "served": false,
+      "sha256": "69f650e913979f66aea166f481adc2ada919b8082ae8be4224a865d61c0387f8"
+    },
+    {
+      "bytes": 51840,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-latin-ext-700-normal-HBZCNMS4.woff2",
+      "served": false,
+      "sha256": "781c6a1e5dde17a6a4930d7776234c59620917171ecc694276d651eeac9ccec6"
+    },
+    {
+      "bytes": 5520,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-vietnamese-400-italic-JZFEI4VO.woff2",
+      "served": false,
+      "sha256": "fc439f2b730248ca48bc59c48c85e76c402283e2c1810cadb6abae974bc828c0"
+    },
+    {
+      "bytes": 4892,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-vietnamese-400-normal-LC2ETJ3I.woff2",
+      "served": false,
+      "sha256": "7f52fa1841709b6222681698f237b206191ed21a189e3ace67a06b61d407ab7f"
+    },
+    {
+      "bytes": 5496,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-vietnamese-700-italic-CQU5Y3AH.woff2",
+      "served": false,
+      "sha256": "003091b5d1b30ff6cfb51b66462f270080ff3eea7be1d53f432b5e6ba763ad1b"
+    },
+    {
+      "bytes": 4980,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/arimo-vietnamese-700-normal-XELBJUKA.woff2",
+      "served": false,
+      "sha256": "324c2cfbddeb3495d7fa68ad3c65d06abbad624866d3289b0ca11aeffa9565c0"
+    },
+    {
+      "bytes": 22224,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/caladea-latin-400-italic-WNOZAPWM.woff2",
+      "served": false,
+      "sha256": "6d439cdc4db2e6cc3252e4dfec76438a4180ec872ff9394ce4dc8792d26d58d1"
+    },
+    {
+      "bytes": 20964,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/caladea-latin-400-normal-ZBUIZBDR.woff2",
+      "served": false,
+      "sha256": "367a4c4dd45c762f6f680ccedbbf18be9d10e13b068aad2813ece1dba881369b"
+    },
+    {
+      "bytes": 22140,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/caladea-latin-700-italic-KTMZ6LTS.woff2",
+      "served": false,
+      "sha256": "097d08d9ec3e2304f083e066a72acae181f400832249a07b334f30a53c20ebc7"
+    },
+    {
+      "bytes": 20948,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/caladea-latin-700-normal-HUJVFLDX.woff2",
+      "served": false,
+      "sha256": "6a6549b8ec8be5ad7db66f28dee13ea008710379e7bd992870eb2d7ac14c9c3a"
+    },
+    {
+      "bytes": 15628,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/caladea-latin-ext-400-italic-T27ZU4UM.woff2",
+      "served": false,
+      "sha256": "473da6227c03f28d0c8403f86bc4dcdeae6d54f6e5fc6ebb3c83e2e458e6128c"
+    },
+    {
+      "bytes": 14988,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/caladea-latin-ext-400-normal-GQRZR7ZU.woff2",
+      "served": false,
+      "sha256": "cbc25eef5aa32ced1a47c7f2b537c52b99dacbd1f78a6fe5a124a898fee9b38d"
+    },
+    {
+      "bytes": 16004,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/caladea-latin-ext-700-italic-LE7YURKO.woff2",
+      "served": false,
+      "sha256": "e650e20c2a58c6f0210aa41de0fb5d675c71af49f5c2d7a7c4cb04014786e032"
+    },
+    {
+      "bytes": 15208,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/caladea-latin-ext-700-normal-BXE2IFF3.woff2",
+      "served": false,
+      "sha256": "30eaca73350d1096e2c9004614e9b5c05374815d1df55db931d2ed7e4d276a28"
+    },
+    {
+      "bytes": 14020,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-cyrillic-400-italic-ALG7DH7U.woff2",
+      "served": false,
+      "sha256": "b1542998e5478497d26b48954dd6856abc9cdb5ff2312c8a8605e9ae5100124a"
+    },
+    {
+      "bytes": 12988,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-cyrillic-400-normal-5HAWTP6N.woff2",
+      "served": false,
+      "sha256": "cafc72cdaa5c4eb086a88bd8ca5f1c7ab71e28147817c384c3cec3f4465f18b9"
+    },
+    {
+      "bytes": 13296,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-cyrillic-700-italic-OLJHWT4P.woff2",
+      "served": false,
+      "sha256": "c598f6c40db2091b66f82c6b5cd7d09d6f36ba1aa9bcca3cb25f4d829b1cbcba"
+    },
+    {
+      "bytes": 13352,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-cyrillic-700-normal-SZHPP3HR.woff2",
+      "served": false,
+      "sha256": "7a80bce01b6fb4ac4d8739488801a2c35d9a8c6c7c4c8f616cd799e2d711e163"
+    },
+    {
+      "bytes": 24952,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-cyrillic-ext-400-italic-6ZPAO4BA.woff2",
+      "served": false,
+      "sha256": "381456852a656be90a28c3e6b6fb4fd5030e6d5f1d178dfc0de01fcccf08452a"
+    },
+    {
+      "bytes": 23848,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-cyrillic-ext-400-normal-ILCDK2CJ.woff2",
+      "served": false,
+      "sha256": "fcf4e79fab227061270f5e8a56f31528e936e46ae699a2aba8b078f0a967da04"
+    },
+    {
+      "bytes": 23880,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-cyrillic-ext-700-italic-PCENFPYA.woff2",
+      "served": false,
+      "sha256": "77eb6d495b3a9103755fa951546f758be3da6a62d950ad99a5ce91a7b1f71ef9"
+    },
+    {
+      "bytes": 24152,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-cyrillic-ext-700-normal-M72JJY5W.woff2",
+      "served": false,
+      "sha256": "350e5de19d2a4e998a2f1e1875ea8bac4da2ecb3595115b96439d0a5ef56ff68"
+    },
+    {
+      "bytes": 17048,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-greek-400-italic-5HX5R2GP.woff2",
+      "served": false,
+      "sha256": "c0f736457516a4d280a4e2553f50223e070673757937ecc822c40d452c85156b"
+    },
+    {
+      "bytes": 16576,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-greek-400-normal-3UHAGYTQ.woff2",
+      "served": false,
+      "sha256": "9b91d375f8870a961a45f2b23da20b5242c584c839c143d16bff0aff47e09423"
+    },
+    {
+      "bytes": 17048,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-greek-700-italic-ZKEWUJGU.woff2",
+      "served": false,
+      "sha256": "af68eeff437b5ed9f0c7fba65df1f5c000c31ae97f84b2c97e1d328f6a051029"
+    },
+    {
+      "bytes": 17392,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-greek-700-normal-3X4OWG5O.woff2",
+      "served": false,
+      "sha256": "1fd4092f4f605d0f59bba93d65dba41629c0e410313d43ce460453a8ad35cd35"
+    },
+    {
+      "bytes": 20100,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-greek-ext-400-italic-7EUSUV3J.woff2",
+      "served": false,
+      "sha256": "5d249a2f9bdedd9fcc3e15a24c399bd8fa68d9401b2cc96f84f51ac9ae625af3"
+    },
+    {
+      "bytes": 17356,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-greek-ext-400-normal-7AYBQVPC.woff2",
+      "served": false,
+      "sha256": "64436c9285fea73ff565dad6a70a67d8115a23cdee7871e59441c98ae4ec4cc1"
+    },
+    {
+      "bytes": 18908,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-greek-ext-700-italic-NAUPZG24.woff2",
+      "served": false,
+      "sha256": "04c446708f2bc45c312397afbe29e5c180cecda85fc3e5060fdd820a2e5c50f9"
+    },
+    {
+      "bytes": 17780,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-greek-ext-700-normal-DO77GHG4.woff2",
+      "served": false,
+      "sha256": "3294b4f6cbd92b29d246d3e34d09e787f957366a1ba3fea8b9dfaf983567dcdb"
+    },
+    {
+      "bytes": 30476,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-latin-400-italic-Y5EGDV2U.woff2",
+      "served": false,
+      "sha256": "6bbdd83c5797d207bd2027f2687a70e428513c56130feaad1ffc0a1a7ace7c07"
+    },
+    {
+      "bytes": 30156,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-latin-400-normal-CJXBN5SS.woff2",
+      "served": false,
+      "sha256": "a29c4a4e61863753cf6a10831efaa05f849dcaa8f580422dbc41bc058c3b6b64"
+    },
+    {
+      "bytes": 31108,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-latin-700-italic-POZTBDM7.woff2",
+      "served": false,
+      "sha256": "e1bbd00245b0b22d0c540413ac73a91f7afff587899260a683acec3564f06ac3"
+    },
+    {
+      "bytes": 31464,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-latin-700-normal-DOSK3ZSH.woff2",
+      "served": false,
+      "sha256": "af249cfe4107221070ff077c29a043004e8f2efea977dcbaaf217a24f3b7680e"
+    },
+    {
+      "bytes": 85488,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-latin-ext-400-italic-AODHLCZC.woff2",
+      "served": false,
+      "sha256": "8ebd4b55d954992bd302c1339e3be920459bb6de9e9c647b1f9a4717433f37b7"
+    },
+    {
+      "bytes": 80796,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-latin-ext-400-normal-STEG33JF.woff2",
+      "served": false,
+      "sha256": "c62f0fc5db6a6c05165f542e6703d743d94a49312271de0876697f892bd5c14d"
+    },
+    {
+      "bytes": 86052,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-latin-ext-700-italic-TJL7OV77.woff2",
+      "served": false,
+      "sha256": "768c03cb653619038eacf3522a6186c616c3183b597a7c24064e071c9712f488"
+    },
+    {
+      "bytes": 83932,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-latin-ext-700-normal-HFPDVSV7.woff2",
+      "served": false,
+      "sha256": "ac72169e5c95728df58cd1cf18625228dd2fb7b49a0eb558d213a52529bdc4ce"
+    },
+    {
+      "bytes": 13068,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-vietnamese-400-italic-BEQTVXWX.woff2",
+      "served": false,
+      "sha256": "b26d0b04b2ebc805e5f9bb80a4e6799579f49b8f4afaba4f3c8f7d3d4fb5d9a0"
+    },
+    {
+      "bytes": 13148,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-vietnamese-400-normal-O3K46SXW.woff2",
+      "served": false,
+      "sha256": "3cfac637f4b55fdec1bb978f16ce4ee8ce2fd686425d9f108dbb67fae0593d32"
+    },
+    {
+      "bytes": 11692,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-vietnamese-700-italic-2AQMHV54.woff2",
+      "served": false,
+      "sha256": "d4240b5101adeb3b6be0a4a13c664077fdeb970a36005f863fb7a810d64e4c73"
+    },
+    {
+      "bytes": 12996,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/carlito-vietnamese-700-normal-EMWYWLWF.woff2",
+      "served": false,
+      "sha256": "e25d2d98eb5361bf9df83a5f53a73708042cf7d530d97d6b96ea7a2d831d65d5"
+    },
+    {
+      "bytes": 10576,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-cyrillic-400-italic-SCMSEP6E.woff2",
+      "served": false,
+      "sha256": "95de8c4ec46b5b2b40302029dd176072f10be804a00de97e3ba009e87a503c37"
+    },
+    {
+      "bytes": 9864,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-cyrillic-400-normal-Z2O3TUGG.woff2",
+      "served": false,
+      "sha256": "7fab714f77d035b9ce1e78083cda36ca6498569aa7f059bd887edb1c16ae9079"
+    },
+    {
+      "bytes": 10644,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-cyrillic-700-italic-SYZMXFGU.woff2",
+      "served": false,
+      "sha256": "e47a16f65d019fe91b7d1b2e1f964fe4173526ac2612dbf20cac51c94e8ca97e"
+    },
+    {
+      "bytes": 9928,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-cyrillic-700-normal-YBNYEEEV.woff2",
+      "served": false,
+      "sha256": "4fed6a9108d28887bf2ff125e4ee18aeceae99f7c6038e99ca2c76b8cb5afad1"
+    },
+    {
+      "bytes": 19840,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-cyrillic-ext-400-italic-T7BK4XNM.woff2",
+      "served": false,
+      "sha256": "e251c33d0396c0a2c03382f98d569441baf416ca7a081d6c6946adaeec4d8b81"
+    },
+    {
+      "bytes": 18436,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-cyrillic-ext-400-normal-2FHZSH7P.woff2",
+      "served": false,
+      "sha256": "a747d5be503b5e66ea9b5ea496d4a88397ca53ce22eeac1a8bf475679d210c10"
+    },
+    {
+      "bytes": 20396,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-cyrillic-ext-700-italic-Z4XLASUX.woff2",
+      "served": false,
+      "sha256": "e89605e1e2782cd4c81ecb573717e1e9f811813bd339d8fc7590e96294f4e817"
+    },
+    {
+      "bytes": 18924,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-cyrillic-ext-700-normal-TRHT7BZK.woff2",
+      "served": false,
+      "sha256": "ba127bf2fa0c306e0df98b94e471d18ff1fcad7b6ffb09edd73b7842d44dc3d4"
+    },
+    {
+      "bytes": 13284,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-greek-400-italic-74UQID22.woff2",
+      "served": false,
+      "sha256": "0726f1ae7a61bdf0ae1da5ed84ce27e57e58f4d32fa9cbcdeb62c9c02615e19b"
+    },
+    {
+      "bytes": 12404,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-greek-400-normal-J3DLEKWC.woff2",
+      "served": false,
+      "sha256": "f9b7f0a2caccdf05f7342dd61833e6de7c96c171ddf5482d40273e50c5409b17"
+    },
+    {
+      "bytes": 13284,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-greek-700-italic-DVIZ7EJS.woff2",
+      "served": false,
+      "sha256": "1e0347b6690543d5878310691990380cbd83613d1011a3906376d23eacff0176"
+    },
+    {
+      "bytes": 12628,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-greek-700-normal-NGY5UQBS.woff2",
+      "served": false,
+      "sha256": "b43d7daa679ed84ba9ab76200eb31039aeb23cf91708085d9e11a841d20f7889"
+    },
+    {
+      "bytes": 7588,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-greek-ext-400-italic-GAMNHZKY.woff2",
+      "served": false,
+      "sha256": "ddb23ebe057522904e804f3e5838ca126dacf3bb2d7692657f9f8b76ee976ad2"
+    },
+    {
+      "bytes": 7292,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-greek-ext-400-normal-7GQLQLPJ.woff2",
+      "served": false,
+      "sha256": "b4856355262f55efc3fac2f526b17849adc7e8149311277e14fd7061d4697e3f"
+    },
+    {
+      "bytes": 7488,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-greek-ext-700-italic-W3BL772W.woff2",
+      "served": false,
+      "sha256": "ab9917826953ac861c41368e28c05d62007359b59b2c1d52bdb9266255390040"
+    },
+    {
+      "bytes": 7092,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-greek-ext-700-normal-LNQHHMZG.woff2",
+      "served": false,
+      "sha256": "1b270fe9b5b282b3a7fc3bc3345b57d28036d7566a3bad63c559137047beb264"
+    },
+    {
+      "bytes": 11380,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-hebrew-400-italic-FQ3Q6AHP.woff2",
+      "served": false,
+      "sha256": "36f155b061b579a751471291566259b32e2d1bb18f52f81293c33e74b748318c"
+    },
+    {
+      "bytes": 10960,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-hebrew-400-normal-6FRTFM3N.woff2",
+      "served": false,
+      "sha256": "82e4c7cf66d966e4181917d190b43c172264d24ced3f4260069c4b501376a0e2"
+    },
+    {
+      "bytes": 11512,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-hebrew-700-italic-IY4YO32Q.woff2",
+      "served": false,
+      "sha256": "1e03af4b0e64eed8655e192e1f93637e96e95e516f8257352449ce86f96daae2"
+    },
+    {
+      "bytes": 11068,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-hebrew-700-normal-IWZD7VKM.woff2",
+      "served": false,
+      "sha256": "9db23f52a231af5f7aa74ba079c66b1dc031c4bf02f17c5e0e42709d7539860d"
+    },
+    {
+      "bytes": 16260,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-latin-400-italic-SAY7M7F3.woff2",
+      "served": false,
+      "sha256": "1f797cdf757dc474a18e8b7378fb49eaab06f11c239ec40db6064cd5cb49febc"
+    },
+    {
+      "bytes": 15228,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-latin-400-normal-RFWNKNVQ.woff2",
+      "served": false,
+      "sha256": "fb542bb367b20289e71b682dc45d8f01de5b0a0658464db9053801f30e7c13a8"
+    },
+    {
+      "bytes": 16460,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-latin-700-italic-MA5T7KVZ.woff2",
+      "served": false,
+      "sha256": "7ac046711b0716288354f50cf697d61743a101507e791547cf05d24db7fbaf22"
+    },
+    {
+      "bytes": 15452,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-latin-700-normal-KQ3OURHR.woff2",
+      "served": false,
+      "sha256": "63c3bc173bf483b579052da1a6532d84d65d0fbfdd081f1ce50d4fe895343625"
+    },
+    {
+      "bytes": 60004,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-latin-ext-400-italic-TJJ57GH4.woff2",
+      "served": false,
+      "sha256": "00a451cd145f0214697ec65e89b536cb031938a154c6b8231a07c348b19b66e6"
+    },
+    {
+      "bytes": 55092,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-latin-ext-400-normal-FZ3HW34M.woff2",
+      "served": false,
+      "sha256": "486dc7aa9c2ea713284d3e6a4c046e5ca47940ec24bfe213b7f7a8b0d3d98ec6"
+    },
+    {
+      "bytes": 60128,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-latin-ext-700-italic-RO2PUP5M.woff2",
+      "served": false,
+      "sha256": "2560a663d5783006594df49d96a55953dbec7816755be1f72865f001b8c94898"
+    },
+    {
+      "bytes": 55292,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-latin-ext-700-normal-6HK23KOP.woff2",
+      "served": false,
+      "sha256": "38adaadaf3c82ea0aaecd28626492fb0f99a75e619ed50c82646ca39993cc092"
+    },
+    {
+      "bytes": 7980,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-vietnamese-400-italic-V34FP2UP.woff2",
+      "served": false,
+      "sha256": "e5ad2b76634f0bae59f07e31818534b2dcd352ff8eafe969fcfd221109f35bde"
+    },
+    {
+      "bytes": 7636,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-vietnamese-400-normal-W4373NHO.woff2",
+      "served": false,
+      "sha256": "00185435e658819da01732afc5ef7282fe60b45bad9128d1c7624bd90b9b17b3"
+    },
+    {
+      "bytes": 8184,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-vietnamese-700-italic-WH6MDCRO.woff2",
+      "served": false,
+      "sha256": "f99a61881971559444737ed9e64fd5de83c437d36a5f3e6fd38a18288f8a6b0f"
+    },
+    {
+      "bytes": 7880,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/cousine-vietnamese-700-normal-VJA33PLK.woff2",
+      "served": false,
+      "sha256": "023847bd37b1ef5da11365632a3452bc95135b2aa3333a8d42074c5faa9dafae"
+    },
+    {
+      "bytes": 24408,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/lato-latin-400-italic-HUBRIWPK.woff2",
+      "served": false,
+      "sha256": "bca1d88ada544d9c80872d4da27133fab6d347361fa26e932b47ec9559088fd0"
+    },
+    {
+      "bytes": 23580,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/lato-latin-400-normal-W7754I4D.woff2",
+      "served": false,
+      "sha256": "918b7dc3e2e2d015c16ce08b57bcb64d2253bafc1707658f361e72865498e537"
+    },
+    {
+      "bytes": 24448,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/lato-latin-700-italic-JFOJL2K5.woff2",
+      "served": false,
+      "sha256": "6c84348296ebe2e2a0830c3962eb02156419d9bc76371c2eadaf7329d827d550"
+    },
+    {
+      "bytes": 23040,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/lato-latin-700-normal-2XVSBPG4.woff2",
+      "served": false,
+      "sha256": "c447dd7677b419db7b21dbdfc6277c7816a913ffda76fd2e52702df538de0e49"
+    },
+    {
+      "bytes": 5776,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/lato-latin-ext-400-italic-EDCYCHHA.woff2",
+      "served": false,
+      "sha256": "077a69d5b698467f49de34980815c848fecb40e35f4b3969b42a703b8b916953"
+    },
+    {
+      "bytes": 5612,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/lato-latin-ext-400-normal-ZXDJ7C2U.woff2",
+      "served": false,
+      "sha256": "8b9fc9737043f88c1a9a7195c27a239bd329cc33d928ffb67736c61ae7a1dbbd"
+    },
+    {
+      "bytes": 5792,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/lato-latin-ext-700-italic-P6ZTT6Y4.woff2",
+      "served": false,
+      "sha256": "72373c5fe499b7b978e186b6550ee6c4a8dc0c9b77fb46a4d76a572c1986466e"
+    },
+    {
+      "bytes": 5552,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/lato-latin-ext-700-normal-3JFX6WED.woff2",
+      "served": false,
+      "sha256": "3a5797f440bc67b59830cad81e59a71011e35cb45ed7f747b61a69b0a9b0d6ae"
+    },
+    {
+      "bytes": 48840,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-arabic-400-normal-K74XADSY.woff2",
+      "served": false,
+      "sha256": "4e2ca0745c908761dc5c5db951662873887c59366fa1a5693ad22c0864abf1bd"
+    },
+    {
+      "bytes": 50228,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-arabic-700-normal-6FN36GON.woff2",
+      "served": false,
+      "sha256": "d2bf5ac762d07f769e4e644a1f919649317cb5b62e20ab9ae02918862627b723"
+    },
+    {
+      "bytes": 10748,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-latin-400-normal-QZDKGACW.woff2",
+      "served": false,
+      "sha256": "290bdad021425e6ba6263c27d38652403f9b1a9ee74f5bbd2c62905b13f71b8c"
+    },
+    {
+      "bytes": 10620,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-latin-700-normal-OZJPMSJS.woff2",
+      "served": false,
+      "sha256": "8d2a9b284d6ade487ab8835d9adaa760f1073cbb7a3ba2f8716ff7e7d159b8f8"
+    },
+    {
+      "bytes": 6528,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-latin-ext-400-normal-7EPMGDF3.woff2",
+      "served": false,
+      "sha256": "6957180cd07de446ce5828b65cf949e9e4ad8b05456332331b63af2088d8f110"
+    },
+    {
+      "bytes": 6528,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-latin-ext-700-normal-NIVR5MYV.woff2",
+      "served": false,
+      "sha256": "e2141540a2fd53a132a57655b0f17b71167da56eadb2a9d3326e7eec90afe0ec"
+    },
+    {
+      "bytes": 7764,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-math-400-normal-KIHTSURU.woff2",
+      "served": false,
+      "sha256": "e35ff4ccf59b80cb3c65db0d995f1f1bcf329649f13aba294a6c0b56815f5626"
+    },
+    {
+      "bytes": 7752,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-math-700-normal-LSMM7UPL.woff2",
+      "served": false,
+      "sha256": "db65350b398d709dedb3c8a02037bc6f6ecaf4340b8c2557e3be377057f74cd6"
+    },
+    {
+      "bytes": 4716,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-symbols-400-normal-UAARYY6S.woff2",
+      "served": false,
+      "sha256": "9c7b97b3b88d9333801c2c057c98e03d746a45d6f81b88b26c24f947c11247eb"
+    },
+    {
+      "bytes": 4748,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/noto-sans-arabic-symbols-700-normal-JDOZ3QPZ.woff2",
+      "served": false,
+      "sha256": "aa027a6d2a03f4d9a5fc260ebfc246928afe83efd1c9cf970c37fe1c4ed90373"
+    },
+    {
+      "bytes": 9740,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-cyrillic-400-italic-QCITD5ET.woff2",
+      "served": false,
+      "sha256": "10a64cfaceefde32e4a7f650ab1631b2c5c6f7000ee9d80eca1e48f84c7ae23d"
+    },
+    {
+      "bytes": 9604,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-cyrillic-400-normal-3PJYG52X.woff2",
+      "served": false,
+      "sha256": "b0324c3af47c138a2b5457466037637b8279576197024ed6968041836ffc0546"
+    },
+    {
+      "bytes": 9732,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-cyrillic-700-italic-NHP7XZRV.woff2",
+      "served": false,
+      "sha256": "d6340159097534a237b179b359f4dbc4b18a41405401559b2ebd8a67e0fe33c8"
+    },
+    {
+      "bytes": 9604,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-cyrillic-700-normal-YAMMRNIS.woff2",
+      "served": false,
+      "sha256": "1c484c7583999a7471c7d2dff4f0d1e001d459afaed4f58b3f6e0d88548d982c"
+    },
+    {
+      "bytes": 5684,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-cyrillic-ext-400-italic-3CZY3BCJ.woff2",
+      "served": false,
+      "sha256": "814f16e0584327b193e155bef010be69030cfcb1c9106a2f70c62078ff6154ec"
+    },
+    {
+      "bytes": 5576,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-cyrillic-ext-400-normal-COLQO7XL.woff2",
+      "served": false,
+      "sha256": "5d89d7bc06f9eb952b94bd148c5a7ae687cde1810eedbe913ad527ed0482839f"
+    },
+    {
+      "bytes": 5680,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-cyrillic-ext-700-italic-UXY5NQGL.woff2",
+      "served": false,
+      "sha256": "3b401d3241b1812744d165a2602962f5b31f5fd0c1c68a02a16eda610f8095d1"
+    },
+    {
+      "bytes": 5540,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-cyrillic-ext-700-normal-4LU7EH4H.woff2",
+      "served": false,
+      "sha256": "2aa0e8a007570ab8eab5bb3b4041243d9e117656e72031b7fb733119f496c045"
+    },
+    {
+      "bytes": 8100,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-greek-400-italic-2BB7JEIP.woff2",
+      "served": false,
+      "sha256": "911eaee1bbf7cb030309a09928952b876f7127598d6d6faca63c80ac9729cfe4"
+    },
+    {
+      "bytes": 8024,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-greek-400-normal-IIUHP622.woff2",
+      "served": false,
+      "sha256": "7f0050bec7f5350c0d331ff3513308416f33496a478b8914c8381b6a70f2811c"
+    },
+    {
+      "bytes": 8092,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-greek-700-italic-X67F4HPT.woff2",
+      "served": false,
+      "sha256": "b50b683d5e8b999151720ad87aae97507054d5801e773167b4e4c99eb57e0cf2"
+    },
+    {
+      "bytes": 7984,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-greek-700-normal-2WR4GBYE.woff2",
+      "served": false,
+      "sha256": "c80dc9b474bec019ad2be0b9713d1bade3f836e8ee866c4ebea887f8bda46f7d"
+    },
+    {
+      "bytes": 5876,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-greek-ext-400-italic-J74OE2DQ.woff2",
+      "served": false,
+      "sha256": "370e43ac2d49324397c86df8a0c4597f6b8a18c87660befd9c19c349ac555451"
+    },
+    {
+      "bytes": 6024,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-greek-ext-400-normal-JQLKDOGT.woff2",
+      "served": false,
+      "sha256": "2a10434a46d7ad591d62dd9330dff15cf1db7bf411dcb73f619f159068bf5508"
+    },
+    {
+      "bytes": 5992,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-greek-ext-700-italic-5Y6VYDD2.woff2",
+      "served": false,
+      "sha256": "8c690410f3eb39bd8cb24fd90e22405f34dcdbc9cce414f6b397b53758ac82b7"
+    },
+    {
+      "bytes": 6012,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-greek-ext-700-normal-ZOSOATIA.woff2",
+      "served": false,
+      "sha256": "3eedb5eb260600a311603665d164abfd5c025fa01f8f2d20eca56dad989d0ffe"
+    },
+    {
+      "bytes": 15808,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-latin-400-italic-HTZXGB3Z.woff2",
+      "served": false,
+      "sha256": "3c230c03425a2866e4b57954f3173fc149dba2634e9ee32c681b41d96c7f06fe"
+    },
+    {
+      "bytes": 15696,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-latin-400-normal-QJ4BPJSY.woff2",
+      "served": false,
+      "sha256": "0f73f35e08cde0a2f10c109c6e01d71459d97e4099ecd9a50f1b6c0209e4de2b"
+    },
+    {
+      "bytes": 15776,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-latin-700-italic-6HZXHUF7.woff2",
+      "served": false,
+      "sha256": "278bb60943203eddcd659e417535935c7a87b45bad124aa7e17b58360a03d533"
+    },
+    {
+      "bytes": 15596,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-latin-700-normal-Q3UVYGXF.woff2",
+      "served": false,
+      "sha256": "ae35266f2ab0d5314ff9a04127931eb26c793e4f1269bb240046d4d2db4b7bb1"
+    },
+    {
+      "bytes": 32208,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-latin-ext-400-italic-D64KD2V2.woff2",
+      "served": false,
+      "sha256": "97f4d6bf2b17b55107975f652bfe47e4443c261cae6a022482611a6c5c8cf7af"
+    },
+    {
+      "bytes": 33024,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-latin-ext-400-normal-OOQC3ZMF.woff2",
+      "served": false,
+      "sha256": "f5706bb057951632456ecbc496dfd01f0e1598718cb31c464c74a6b1fe79c837"
+    },
+    {
+      "bytes": 32252,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-latin-ext-700-italic-YTXJ2CVW.woff2",
+      "served": false,
+      "sha256": "ac0e3d0bc0746cd13f43f58ba71ce738cf49620f1e6db45e5de30a91d93ceacb"
+    },
+    {
+      "bytes": 32956,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-latin-ext-700-normal-GSUPVMJ2.woff2",
+      "served": false,
+      "sha256": "6a9fd74275186fc7c5019796401ac280d2cdd19afc6cbb1ae9af481cbda9d25c"
+    },
+    {
+      "bytes": 6376,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-vietnamese-400-italic-JNENVDKV.woff2",
+      "served": false,
+      "sha256": "db664d97d45a6a62504598d6bc97a1e4e67a1f4e44caf59ba808760eaa1baba2"
+    },
+    {
+      "bytes": 6216,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-vietnamese-400-normal-ACXEJ4QE.woff2",
+      "served": false,
+      "sha256": "06d1ea08ca0f42e1eba33fb67670d3aa24f0a5bc14f5076094f2e4c43790929d"
+    },
+    {
+      "bytes": 6440,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-vietnamese-700-italic-G2TYEM7U.woff2",
+      "served": false,
+      "sha256": "c9c117b60f38b2bdf91fdbcd43db8cddef6ebdfd4d4d4bf6606629ede60fda5b"
+    },
+    {
+      "bytes": 6136,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/source-sans-3-vietnamese-700-normal-RKF4UHQT.woff2",
+      "served": false,
+      "sha256": "16b08bc821a9a93bc3c7379c41801edb0a35806e1eac54630467a7439ca8ca6c"
+    },
+    {
+      "bytes": 13668,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-cyrillic-400-italic-IAUZNWMV.woff2",
+      "served": false,
+      "sha256": "1cb0bffde144abc942312fa1f17994989acddaba6bca435393b8e9815466b134"
+    },
+    {
+      "bytes": 12236,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-cyrillic-400-normal-Z7UYTAFT.woff2",
+      "served": false,
+      "sha256": "e6b3e2a71d7559649ea6634b70e0c60261a8326b672796420066569150f172c7"
+    },
+    {
+      "bytes": 13872,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-cyrillic-700-italic-BKLHBIUR.woff2",
+      "served": false,
+      "sha256": "736dc6459d5ae0c60c8807f38327ead5cd0b61ced48d81f462b3e75d2d123a7a"
+    },
+    {
+      "bytes": 13048,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-cyrillic-700-normal-H7MTRUVC.woff2",
+      "served": false,
+      "sha256": "db11013386cce35b289b2517de52b7a4bef92306058a795397404b8b2b040bb2"
+    },
+    {
+      "bytes": 37932,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-cyrillic-ext-400-italic-U53O5UG6.woff2",
+      "served": false,
+      "sha256": "e173804be8e5f8a0f348e825ef1f587f011ee2f2ef0449a586a9ed7e64c23eec"
+    },
+    {
+      "bytes": 35260,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-cyrillic-ext-400-normal-DNSM4CPA.woff2",
+      "served": false,
+      "sha256": "5007c0e3bfb261930761549c8ced704b216c6d48c65cd83aa60ba145cf0a629c"
+    },
+    {
+      "bytes": 38080,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-cyrillic-ext-700-italic-M22HKLF7.woff2",
+      "served": false,
+      "sha256": "0a9d22f6e00dd2a66a0ae662c5e6a2ef725f0aa743bcf0b9add7cea4adca4842"
+    },
+    {
+      "bytes": 36724,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-cyrillic-ext-700-normal-YT4CWR4M.woff2",
+      "served": false,
+      "sha256": "89ca8739fa63c4a91bdd5f096dfcdbf5392e5d0d59a0e3e8e0b54618705be784"
+    },
+    {
+      "bytes": 15620,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-greek-400-italic-PGCUCO7D.woff2",
+      "served": false,
+      "sha256": "7990fca0cfdec041abd96e20bff6b7092e5b08f5d30080b870e3e03f33cd6241"
+    },
+    {
+      "bytes": 14868,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-greek-400-normal-2YTDOQXT.woff2",
+      "served": false,
+      "sha256": "29ab2eb1c91ca16ad9e767437eb205ff7b15c423b45e13e192b023b782c4a1b5"
+    },
+    {
+      "bytes": 16260,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-greek-700-italic-MNEWB7FI.woff2",
+      "served": false,
+      "sha256": "ccda246a60ee0d5dab48a5fda365388cced8ac127d8e40db08dc79418b1f4ad4"
+    },
+    {
+      "bytes": 15420,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-greek-700-normal-GCFSP4PI.woff2",
+      "served": false,
+      "sha256": "b5d67a19f36193728ac4d5d61865a026a2b78ef58b6799b30c56a33005a12006"
+    },
+    {
+      "bytes": 8116,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-greek-ext-400-italic-Z5JK5JWM.woff2",
+      "served": false,
+      "sha256": "2d38b53ebcc3acf4b9477f273c286274b72a4f615479f278abcf3428ce22ff21"
+    },
+    {
+      "bytes": 7536,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-greek-ext-400-normal-P2CVFK33.woff2",
+      "served": false,
+      "sha256": "c8fb21c904cfa9f8c680da0b9ef29af7e9514c7e4ea868a4e97a3f93454534a0"
+    },
+    {
+      "bytes": 8272,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-greek-ext-700-italic-7GJSPODS.woff2",
+      "served": false,
+      "sha256": "eaa3c132225e8bfc5f1eaf26b83c18c0c4127e6de88856bd44ea6319a8fa0918"
+    },
+    {
+      "bytes": 7888,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-greek-ext-700-normal-LRLOYXDO.woff2",
+      "served": false,
+      "sha256": "5cc611cd19a930d95fb0e8b79c733c05270da1a78dd56a070d0db1970506a37e"
+    },
+    {
+      "bytes": 14488,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-hebrew-400-italic-EOMV3WT7.woff2",
+      "served": false,
+      "sha256": "b3f1dcf2b7e777229bf01e0b401d9f177cf22c70a19d8a69fbaa7156eb3ac9bc"
+    },
+    {
+      "bytes": 12960,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-hebrew-400-normal-PB7ZFJOD.woff2",
+      "served": false,
+      "sha256": "14d9c69fd4d651d873915ce4235f8e343caffbab1285ce8c3773d12a324a1626"
+    },
+    {
+      "bytes": 14816,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-hebrew-700-italic-FXTU4SS5.woff2",
+      "served": false,
+      "sha256": "43647b27f5e5fe0b4ab47d953b83cc09b71e858c9c1092b58d878a6ef4346f0c"
+    },
+    {
+      "bytes": 14344,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-hebrew-700-normal-3GPTQHRS.woff2",
+      "served": false,
+      "sha256": "256df943e517822c5fdb89d843d4fd1f6662d7c02a37c0744ddd276266ca223b"
+    },
+    {
+      "bytes": 18756,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-latin-400-italic-WZDN6QNB.woff2",
+      "served": false,
+      "sha256": "55fe58e551b07fc6586e4e632d10ebf50339fe1f0f4ec97cb55a2abc7d18ff79"
+    },
+    {
+      "bytes": 17848,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-latin-400-normal-NIRWLIK2.woff2",
+      "served": false,
+      "sha256": "18505b57c8a016326da164a1e9a14e8d1c5081ae78e9fe7b57bb66a330ea4ef9"
+    },
+    {
+      "bytes": 18868,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-latin-700-italic-NXR2OHM2.woff2",
+      "served": false,
+      "sha256": "6b199a846d3766e7d35961162b6dc399cda36ff60d3f26ef022be685b609425e"
+    },
+    {
+      "bytes": 18900,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-latin-700-normal-LSW3LS5M.woff2",
+      "served": false,
+      "sha256": "4132bff0c1156d037289c3372cab59f16e4b0967b71d6cd219ce67619d02de73"
+    },
+    {
+      "bytes": 84140,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-latin-ext-400-italic-54YLJXG4.woff2",
+      "served": false,
+      "sha256": "b33d03f35f2f5121a6541c9ff9fd2e49c1cbb8599075ff7c91e06b772bf442c3"
+    },
+    {
+      "bytes": 76348,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-latin-ext-400-normal-PNU4PXM7.woff2",
+      "served": false,
+      "sha256": "f125354040abb6f549e96a3431927eb39883ede50f2aafb725016ec716a01056"
+    },
+    {
+      "bytes": 83944,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-latin-ext-700-italic-CTPRDXF3.woff2",
+      "served": false,
+      "sha256": "53f875bb50e90e925214c081af4cf264ebbe88e9a744ff26d86c56b98df25bcb"
+    },
+    {
+      "bytes": 82732,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-latin-ext-700-normal-NPMBY35H.woff2",
+      "served": false,
+      "sha256": "93772df0366bf272183c3b429ae37e0f5cb274f6de0a4c9661ba8d0d02d4d5c7"
+    },
+    {
+      "bytes": 7948,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-vietnamese-400-italic-Q7W7QBVN.woff2",
+      "served": false,
+      "sha256": "9d94720132cc88505fac97c1acc335fe36cf1c7f2eebab10f3151eb2025a0b93"
+    },
+    {
+      "bytes": 7304,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-vietnamese-400-normal-GVXJ7V5E.woff2",
+      "served": false,
+      "sha256": "1a9f67bba0444f527d6d457e8384f0cfe993c2537c20cecd628c32cc2d77ab9e"
+    },
+    {
+      "bytes": 7936,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-vietnamese-700-italic-P4ZJDNJH.woff2",
+      "served": false,
+      "sha256": "be8aea6f8ae805ea6e9a4b83c31e5d2f2f0a3262de7f592aa7a382e1d7fc837b"
+    },
+    {
+      "bytes": 7836,
+      "path": "release/et-v0.13.0/out/demos/folio/fonts/tinos-vietnamese-700-normal-G3D6YW4Y.woff2",
+      "served": false,
+      "sha256": "a9204f5c97e8a95676b729bc0dc2b925acc71e3152c2b9df33dab27dbaff112c"
+    },
+    {
+      "bytes": 7465,
+      "path": "release/et-v0.13.0/out/demos/folio/index.html",
+      "served": false,
+      "sha256": "ce6ae49bbfd2adced338d919a12a9d7bcabcdb150ba21ef9cdf46614d7f4eb98"
+    },
+    {
+      "bytes": 11345,
+      "path": "release/et-v0.13.0/out/demos/genoffice/LICENSE",
+      "served": false,
+      "sha256": "68e32334df324ef4fc79fad3a26487e5abac36055a484bb6c8d7ecf9d8350885"
+    },
+    {
+      "bytes": 315,
+      "path": "release/et-v0.13.0/out/demos/genoffice/SOURCE.txt",
+      "served": false,
+      "sha256": "65ea72a0d6b991577561e93ed13b4dca79ffebbd6e64e45c604f3a5ef01111f6"
+    },
+    {
+      "bytes": 58892,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/Caladea-Bold-D8qQyaGr.ttf",
+      "served": false,
+      "sha256": "74eda4fc5ffba0d8dc4aa76d41499f5ab76168d9ed6141c6417064c6244db9b6"
+    },
+    {
+      "bytes": 61828,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/Caladea-BoldItalic-wZEKqfeH.ttf",
+      "served": false,
+      "sha256": "f47a35ad6cd0efa9914d93f9d03c93e30c55da43674bccfabac73b3c0d522c01"
+    },
+    {
+      "bytes": 61860,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/Caladea-Italic-B_Jy4Zu6.ttf",
+      "served": false,
+      "sha256": "9c968bf60ba1e851cdfea77c71e3540c57792f77482dd241acc29d1425569c4e"
+    },
+    {
+      "bytes": 58964,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/Caladea-Regular-BTbwo_Qo.ttf",
+      "served": false,
+      "sha256": "d2f6cad33f191e65b68bd74e6d4f7708080a41b32db635866109df3090265d91"
+    },
+    {
+      "bytes": 686240,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/Carlito-Bold-BhbXr__n.ttf",
+      "served": false,
+      "sha256": "ed778b78ce652f5b17647344fb9a4c4dcb2e6f8bafe75a0366300da7f8c199ac"
+    },
+    {
+      "bytes": 812344,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/Carlito-BoldItalic-0dXjwGA0.ttf",
+      "served": false,
+      "sha256": "0468067dde1d54111862f20f3fc4a5e8dcbc0ad4549e318c601b8ff7bdec935d"
+    },
+    {
+      "bytes": 619052,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/Carlito-Italic-KkZUqxJW.ttf",
+      "served": false,
+      "sha256": "de59348ac812a347537b90a3d70796cfd5369048ecf9c78f5bca79ab55dd28a7"
+    },
+    {
+      "bytes": 631712,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/Carlito-Regular-Cbe9FLjp.ttf",
+      "served": false,
+      "sha256": "cca497a63f1cf8111d2189424ec38b95002e43799efe4f1486ec7f8063bb93c1"
+    },
+    {
+      "bytes": 64616,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeBengali-Bold-C1wtHFaL.woff2",
+      "served": false,
+      "sha256": "ace0aa228915eca922faec43312a9ee0a4c3424efb1135f1a5b69830eaceaa83"
+    },
+    {
+      "bytes": 61564,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeBengali-Regular-B8AH1Hcw.woff2",
+      "served": false,
+      "sha256": "75edd63c608052e1583900537053a839c685e8fa8e0bbb0ac0ed9582c3c0e75e"
+    },
+    {
+      "bytes": 8296,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeCheLatinKR-CFVfemg_.woff2",
+      "served": false,
+      "sha256": "06d44399fdb8a13855414d64e92f404d941fb453fe4f333a704ca1e4e5128610"
+    },
+    {
+      "bytes": 28428,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeDMSans-Bold-subset-DVFBF4J5.woff2",
+      "served": false,
+      "sha256": "2a6f9734e8159cbdccc6b5f6e231df46951dca421f952ca8df092094ff5fbd2b"
+    },
+    {
+      "bytes": 28632,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeDMSans-Regular-subset-DEQZCK4K.woff2",
+      "served": false,
+      "sha256": "f1bcc5ed226ad133fb270f11d78ea5b838570e910f3db3f1a00c1bc2fe9547fa"
+    },
+    {
+      "bytes": 281980,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeGothicKR-Regular-subset-Bkvj_MFZ.woff2",
+      "served": false,
+      "sha256": "c72779cf46f16c8d45e8db2b1377f4e627d43264e906107666f2c2621e9423b6"
+    },
+    {
+      "bytes": 14128,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficePoppins-Bold-subset-CLJyStaw.woff2",
+      "served": false,
+      "sha256": "ec6c07101aa4d62b559847a93e3e9358554bd253e153f7fdfbf74d866b59a024"
+    },
+    {
+      "bytes": 14160,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficePoppins-Regular-subset-RElVmxhA.woff2",
+      "served": false,
+      "sha256": "a43b5060988c6400673f99ce795ea6814ecc86dcb9adb33a5b78f9308708344b"
+    },
+    {
+      "bytes": 267024,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeSansKR-Regular-subset-Cq8p8gsc.woff2",
+      "served": false,
+      "sha256": "72b5466d8e07a3234607c973c8ac3aee879b895bc71b6a0e07acefe7819784cb"
+    },
+    {
+      "bytes": 512436,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeSerifKR-Regular-subset-BkQyd75u.woff2",
+      "served": false,
+      "sha256": "ef34d00ded53b3ca655cf6faeaa554c76715b0ee19421c06e12949e5e7d57d8f"
+    },
+    {
+      "bytes": 33072,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeTamil-Regular-DLISHPmH.woff2",
+      "served": false,
+      "sha256": "b1571cf888c26f1c7822d169bfa201f3e4cf58f03d5eb76885f10c3cc2b5c1ef"
+    },
+    {
+      "bytes": 26204,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeUIKanaJP-Bold-DbcaglVT.woff2",
+      "served": false,
+      "sha256": "68e149ce17eeb14bbdfaf7775e157439f34baab027d29d72e7e4de549cc7a78c"
+    },
+    {
+      "bytes": 25288,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/GenOfficeUIKanaJP-Regular-Bj_7JzTT.woff2",
+      "served": false,
+      "sha256": "3910237ea1074a33fb3b16a18f9df166573895e3a3f9914e837ab9215226ee05"
+    },
+    {
+      "bytes": 307996,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationMono-Bold-JpIqZVyK.ttf",
+      "served": false,
+      "sha256": "bd62a0672d0b9b6710b01df434c80ad54fa5f0835207eb7b17b7a761463067bb"
+    },
+    {
+      "bytes": 284068,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationMono-BoldItalic-CW50-m9W.ttf",
+      "served": false,
+      "sha256": "79451f3c09fe25116098853b7a2ca6e2436220ccc11af022979adbcf195be130"
+    },
+    {
+      "bytes": 281536,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationMono-Italic-BaW6sbi8.ttf",
+      "served": false,
+      "sha256": "605c01c711b44480a7508d349dfbf3264e81fa43d69e61cfa7d10b86e764c4d1"
+    },
+    {
+      "bytes": 319508,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationMono-Regular-CscJ8ftk.ttf",
+      "served": false,
+      "sha256": "f2b83c763e8afd21709333370bed4774337fae82267937e2b5aea7e2fbd922c1"
+    },
+    {
+      "bytes": 414456,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationSans-Bold-CAnzDFU4.ttf",
+      "served": false,
+      "sha256": "788abee4c806d660e8aee46689dd8540cd4bb98da03dcc9d171ce3efd99a9173"
+    },
+    {
+      "bytes": 408996,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationSans-BoldItalic-BC07J_j6.ttf",
+      "served": false,
+      "sha256": "698da70fc191cc5f33ad4d6d3fe830fe4624b898ea2e3169955928b7c491f1ee"
+    },
+    {
+      "bytes": 415816,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationSans-Italic-D6GtLuAT.ttf",
+      "served": false,
+      "sha256": "e5bae5c4cde31f22142753855f4f8fb86da6ff39955ed3c0a11248b0d16948b0"
+    },
+    {
+      "bytes": 410712,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationSans-Regular-CqxnOoBp.ttf",
+      "served": false,
+      "sha256": "76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8"
+    },
+    {
+      "bytes": 370096,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationSerif-Bold-CT7WGLoV.ttf",
+      "served": false,
+      "sha256": "d754ba427cfe0bca54ae052384baa8f842da5bd6550ad4da024ac441e7a7d5ce"
+    },
+    {
+      "bytes": 376772,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationSerif-BoldItalic-DHf5skZ4.ttf",
+      "served": false,
+      "sha256": "f17db8af71e24d2066b587546021d4f0b296be389512b658dec3c09affeb11a7"
+    },
+    {
+      "bytes": 375632,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationSerif-Italic-Bwtmn-ni.ttf",
+      "served": false,
+      "sha256": "0e3dea9f8d613e006ccfa62201f33e265d19167bd0907725c3e145368b04fc2e"
+    },
+    {
+      "bytes": 393576,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/LiberationSerif-Regular-DREh6cMU.ttf",
+      "served": false,
+      "sha256": "058ea80864aef09a23f45cbec2bb5400bc3dfbdea01c3f10538a21fcb497fb74"
+    },
+    {
+      "bytes": 69624,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/NotoNaskhArabic-Regular-subset-DQSqx2ZA.woff2",
+      "served": false,
+      "sha256": "9c90d66fa736481513d86f17927ca22f5054bcd4c702d3cc7c8a611ca9a091ec"
+    },
+    {
+      "bytes": 63672,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/NotoSansArabic-Regular-subset-D207GVuU.woff2",
+      "served": false,
+      "sha256": "3ae72fd620251f4c1da3f295ea49a4d949eadc08c16fc83b36d0959f09c72ed3"
+    },
+    {
+      "bytes": 2533160,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/NotoSansCJKsc-Regular-subset-BuHGXxnc.woff2",
+      "served": false,
+      "sha256": "e527a37d1025cd0e03dc42667582cbfdfc8ea35699dae51b722de5f91e58b0d8"
+    },
+    {
+      "bytes": 3495928,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/NotoSerifCJKsc-Regular-subset-CLPB6QGT.woff2",
+      "served": false,
+      "sha256": "1b60526f07128255e4a3bfe315b7764a6c89612154bb40804b0d480a374cae43"
+    },
+    {
+      "bytes": 5658615,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/index-B3vB_Qgs.js",
+      "served": false,
+      "sha256": "f6958b68c529157e4a6574af85d4cd19a6f83a87bb9a152bb84817b3fa60138d"
+    },
+    {
+      "bytes": 467460,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/index-CMHIw4xB.css",
+      "served": false,
+      "sha256": "bf816ac23928af73740f5bef0bb9a6b3978a949a6236b7a2d8d546bb91d6f8cb"
+    },
+    {
+      "bytes": 664670,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/parse-worker-CJaYOLvS.js",
+      "served": false,
+      "sha256": "86fbb7df68954926222f5283a5c5f510724b9bd9f8ce8b565027d38b79bd379c"
+    },
+    {
+      "bytes": 489678,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/pdf-Db4OFiBi.js",
+      "served": false,
+      "sha256": "0e4f613ffb183b937cd0a577b94f390903a82e8e6c7c023122abb060d4fc2908"
+    },
+    {
+      "bytes": 1312452,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/pdf.worker.min-CLrFZWeq.mjs",
+      "served": false,
+      "sha256": "bc0d1b88ea0b66196b1d36a58ac243c6d92adfe725624e2a9fdd381bdf8ef434"
+    },
+    {
+      "bytes": 93,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/pdf.worker.min-D8Djv3Xg.js",
+      "served": false,
+      "sha256": "0d7489d124b0686614d58bd43b023b50f903dd7876acbe443799bb5db0184adc"
+    },
+    {
+      "bytes": 4247,
+      "path": "release/et-v0.13.0/out/demos/genoffice/assets/send-enter-off-B0IfWMyy.png",
+      "served": false,
+      "sha256": "322f8180c5a9eddf9cc79b1147e8656e8537c61b4e458fed7fc476508a81ea69"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/genoffice/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 861,
+      "path": "release/et-v0.13.0/out/demos/genoffice/index.html",
+      "served": false,
+      "sha256": "d99dd2f6bddba8f07fc593218bd7ae713e7a5d17beb15ab2f1aedfa3f9ecfc33"
+    },
+    {
+      "bytes": 310,
+      "path": "release/et-v0.13.0/out/demos/office-open/SOURCE.txt",
+      "served": false,
+      "sha256": "2a9099e018afd934f24440deab63fa19a2b7a9c900f801dac8ada7603a6cc8a9"
+    },
+    {
+      "bytes": 928620,
+      "path": "release/et-v0.13.0/out/demos/office-open/assets/index-DfKMq5yw.js",
+      "served": false,
+      "sha256": "2b503b4623d1725c52ed8ccdd9816230673875b8b81c9244938f1f81330abb5c"
+    },
+    {
+      "bytes": 2903,
+      "path": "release/et-v0.13.0/out/demos/office-open/assets/style-Dax4jFWk.css",
+      "served": false,
+      "sha256": "ade2a274b9b59577ade6c8caa2c9fb857d6c196b86a6388a8591c79d53459b8b"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/office-open/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 863,
+      "path": "release/et-v0.13.0/out/demos/office-open/index.html",
+      "served": false,
+      "sha256": "5daf33914019056964be944add62c10ba376f36abe195f974ed66829c46bb550"
+    },
+    {
+      "bytes": 1293,
+      "path": "release/et-v0.13.0/out/demos/plate/LICENSE",
+      "served": false,
+      "sha256": "8b649e3569682298f50ed2048210e8f528034feb56f5d43a9977a7d60b0f7065"
+    },
+    {
+      "bytes": 296,
+      "path": "release/et-v0.13.0/out/demos/plate/SOURCE.txt",
+      "served": false,
+      "sha256": "4e70bfac9a166a71cbd61c23abaadc2837ff9ba32f5ca2b481b30330ef5d3dfb"
+    },
+    {
+      "bytes": 51976,
+      "path": "release/et-v0.13.0/out/demos/plate/assets/import-IML0X1GM.js",
+      "served": false,
+      "sha256": "8b4a0265047948a564f9ed66d35643c6563a0236d37b8cca287cf156e80f3b42"
+    },
+    {
+      "bytes": 2575233,
+      "path": "release/et-v0.13.0/out/demos/plate/assets/index-BVHXELQm.js",
+      "served": false,
+      "sha256": "0eeb50e8a65863912c50c399906e8fcd316a4aa1e21814360bd2b6621a69ee2c"
+    },
+    {
+      "bytes": 2749,
+      "path": "release/et-v0.13.0/out/demos/plate/assets/index-teWDdqn7.css",
+      "served": false,
+      "sha256": "0fdcbc6ca86e19628f75af9c9b650a63c399927c15da2454847e35bd4c77013f"
+    },
+    {
+      "bytes": 1301,
+      "path": "release/et-v0.13.0/out/demos/plate/assets/rolldown-runtime-BCiCTKAo.js",
+      "served": false,
+      "sha256": "f85e715d54a11fa37b7774ad77b536896ed01bfdfc98f485b678c81859fc8e2e"
+    },
+    {
+      "bytes": 3125966,
+      "path": "release/et-v0.13.0/out/demos/plate/assets/vendor-CNPQ9obS.js",
+      "served": false,
+      "sha256": "8cb7a3652104147a05189ebefaf344ec7d8ca24f41f84a703ef4fac2e0da8785"
+    },
+    {
+      "bytes": 39935,
+      "path": "release/et-v0.13.0/out/demos/plate/assets/vendor-css-0NseL_e1.js",
+      "served": false,
+      "sha256": "630f15f4d06448362fad35ff905d0e69aa8eb6fea7239d08f7adf70aecd0ad07"
+    },
+    {
+      "bytes": 162312,
+      "path": "release/et-v0.13.0/out/demos/plate/assets/vendor-highlight-C0JqhqXI.js",
+      "served": false,
+      "sha256": "c2f1cc37e9983f2119a925cbc588c80e02504b4bb8cab56dbb9d2e312cde27a5"
+    },
+    {
+      "bytes": 523514,
+      "path": "release/et-v0.13.0/out/demos/plate/assets/vendor-katex-C3SQh6c5.js",
+      "served": false,
+      "sha256": "4d9f1978b4debda37363f4cc7d5dedb1ea0145ad1e8c38af863cc38e6f889acb"
+    },
+    {
+      "bytes": 55708,
+      "path": "release/et-v0.13.0/out/demos/plate/assets/vendor-mammoth-2W44hXRL.js",
+      "served": false,
+      "sha256": "7b0242c99df259144a119ae193a4ba134860ea516c3069fccbb35be19a482222"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/plate/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 1175,
+      "path": "release/et-v0.13.0/out/demos/plate/index.html",
+      "served": false,
+      "sha256": "812df45af84804c3d210313d7bdb08846416609b4ffea4dac28bf41f090f3624"
+    },
+    {
+      "bytes": 34523,
+      "path": "release/et-v0.13.0/out/demos/superdoc/LICENSE",
+      "served": false,
+      "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+    },
+    {
+      "bytes": 311,
+      "path": "release/et-v0.13.0/out/demos/superdoc/SOURCE.txt",
+      "served": false,
+      "sha256": "ad4832e807ba1eb9d3c69a611b8b9381dbe59416af8261dd4d057ffe7e6919cf"
+    },
+    {
+      "bytes": 31160,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/ArchivoBlack-Regular-CEvWMWNS.woff2",
+      "served": false,
+      "sha256": "a4db2d9e20b4f660e37d512dc63b733c094c8a241f012dee2d54aea8dbb78f54"
+    },
+    {
+      "bytes": 16148,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/BacasimeAntique-Regular-uC-C_6GG.woff2",
+      "served": false,
+      "sha256": "c202b418883518fb9200de4ff3eac96bf4345b3102d30a92a188496ffff7e9f7"
+    },
+    {
+      "bytes": 67020,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/C059-BdIta-2i7cYQRH.woff2",
+      "served": false,
+      "sha256": "6a5c6137882467b1f59ecabcceeec1c027942dfe6470c547e799551587c43bb3"
+    },
+    {
+      "bytes": 63620,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/C059-Bold-BX4LcXIU.woff2",
+      "served": false,
+      "sha256": "bc1f06f00e81f2220dbe9350ae1229bc56245783b15766e5a58c1f1635614139"
+    },
+    {
+      "bytes": 65320,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/C059-Italic-BsKJL_NE.woff2",
+      "served": false,
+      "sha256": "66c0bf50135076be52166c79cd84d9cde97a8949ba21a16ac9495d0d4b2f3113"
+    },
+    {
+      "bytes": 63184,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/C059-Roman-9SSQjxdJ.woff2",
+      "served": false,
+      "sha256": "98d7ad51c9cd4d3b99b5f2db5c1f0b2b5d001f0602ef217cc8f92e579ea14945"
+    },
+    {
+      "bytes": 18424,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Caladea-Bold-DoKcmuXG.woff2",
+      "served": false,
+      "sha256": "750be3bdefd9c13b1a8c7227208387a01aad02c21c348698a43dbc908f5b5778"
+    },
+    {
+      "bytes": 19368,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Caladea-BoldItalic-DF7QfQoY.woff2",
+      "served": false,
+      "sha256": "cd6f404e1e64c1c9ee40f0399fa9bd5be906131345a17325e3d28823289778bb"
+    },
+    {
+      "bytes": 19640,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Caladea-Italic-CoLO_7C4.woff2",
+      "served": false,
+      "sha256": "0b93e9951744c59a56895c98286e2ea546d04635d41992b1bb32770a1fe8aa15"
+    },
+    {
+      "bytes": 18860,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Caladea-Regular-rARFrQqf.woff2",
+      "served": false,
+      "sha256": "bc550d757aa2f91667c89fe99c576dd2592bb6aa4c03def6ee9d3b7278f8f503"
+    },
+    {
+      "bytes": 22880,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Caprasimo-Regular-CFD_MttN.woff2",
+      "served": false,
+      "sha256": "66c6d1e052b6553371f29d21bfee798bb3c2238f51b54a89fe50d4234db348b1"
+    },
+    {
+      "bytes": 134404,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Cardo-Bold-B_DhVDEZ.woff2",
+      "served": false,
+      "sha256": "f8c73ba923c2517cf21e7afe61f2d126722cb7037bfa8da4a5ecf0dcf858cd42"
+    },
+    {
+      "bytes": 107072,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Cardo-Italic-D2l8RRJJ.woff2",
+      "served": false,
+      "sha256": "241bc8d8f7967633cc47db11c46e8ec33cf82ad0f3e33e2592fe2460dc52e4fd"
+    },
+    {
+      "bytes": 147804,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Cardo-Regular-Cn2VXb-4.woff2",
+      "served": false,
+      "sha256": "e5f2ab143c0a3be44dc79eb1033db65ec0181ee4630217f14cd2bfccad86dc82"
+    },
+    {
+      "bytes": 198592,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Carlito-Bold-CON6kagT.woff2",
+      "served": false,
+      "sha256": "9850d2d48b11067c4b9a8e09e94e9c9df25a41a68017e0e3ed8a011017cc55a6"
+    },
+    {
+      "bytes": 207128,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Carlito-BoldItalic-DT5dcuSS.woff2",
+      "served": false,
+      "sha256": "d841c947dda8330f7dc55f1f3ceef5b22ca5f695ff41f18a23bcaedb876ae2b2"
+    },
+    {
+      "bytes": 201992,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Carlito-Italic-BBgGkK-p.woff2",
+      "served": false,
+      "sha256": "5016317d757a507cda505b15bda5b44114d18ff8db260af71ce9021529639fb2"
+    },
+    {
+      "bytes": 190548,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Carlito-Regular-DLcwYYIv.woff2",
+      "served": false,
+      "sha256": "7d76ec686e1e4b4eb24be79a7b97bc5359860876c63aaf7142cdb6d0c8bc031b"
+    },
+    {
+      "bytes": 46756,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/ComicRelief-Bold-Bm0Ye6Rn.woff2",
+      "served": false,
+      "sha256": "8c33948ae740c0f4baaf6f7cb85e2d135566024328ee87f898de350ffe830632"
+    },
+    {
+      "bytes": 37100,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/ComicRelief-Regular-CGV-iV9o.woff2",
+      "served": false,
+      "sha256": "4da72e2fd1f17ffdee624f527718b7f236324aab81d15168969e63307083dce6"
+    },
+    {
+      "bytes": 8268,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/FindReplaceSurface-RUiTFDt3.es-Caoigmh1.js",
+      "served": false,
+      "sha256": "8cd82fb92e61a37142626477bb3196117199c53feb6c9e571a3a48a3e81c1e6f"
+    },
+    {
+      "bytes": 42460,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Gelasio-Bold-AdBDlG2x.woff2",
+      "served": false,
+      "sha256": "d5d57ba918bec682ff23f9491dc39f5b3b938c5281bd2630d0640b533f935c5c"
+    },
+    {
+      "bytes": 45816,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Gelasio-BoldItalic-DRmygbUw.woff2",
+      "served": false,
+      "sha256": "c6f0f2c42f0fa5186986b293250ad92a1c6e716968c570add483008c02407a44"
+    },
+    {
+      "bytes": 45568,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Gelasio-Italic-clq84E2w.woff2",
+      "served": false,
+      "sha256": "f49bebf82ba6ba3fdfd4a5a248b82fea24f398c21ad7c5f51dca64d93aeaa757"
+    },
+    {
+      "bytes": 42072,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Gelasio-Regular-Dcug9y2m.woff2",
+      "served": false,
+      "sha256": "1514bedc3e56233eb414876d213df3de01ee2075f23aae2c44ca96462964884c"
+    },
+    {
+      "bytes": 41056,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/InconsolataSemiExpanded-Bold-BHgryf4d.woff2",
+      "served": false,
+      "sha256": "a42613d2889857b5ac5b5f3ce8876f63991d695269fbeb3f38ffebbb4ed18d33"
+    },
+    {
+      "bytes": 40044,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/InconsolataSemiExpanded-Regular-Bnx9qtQ6.woff2",
+      "served": false,
+      "sha256": "168feaeacc8c08f9c7b0b70d57e93d9cfa960c5b295dbf4f7c25d136b9bd2a9a"
+    },
+    {
+      "bytes": 123088,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationMono-Bold-h_WDhqUj.woff2",
+      "served": false,
+      "sha256": "916ddb6c31087f916c10a298b8934e0cc9db0e99541ab20543a7996c0bf5f91a"
+    },
+    {
+      "bytes": 117004,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationMono-BoldItalic-Cxpcw1_S.woff2",
+      "served": false,
+      "sha256": "0fce31aa9a25eb896122b309d86ebfd5541a12d917f2b94669b0e166302e29b9"
+    },
+    {
+      "bytes": 114660,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationMono-Italic-DeTPzGax.woff2",
+      "served": false,
+      "sha256": "42dfd49060760af285e0230846849394dd2f311299ec1a694c1cb34bf9be46fa"
+    },
+    {
+      "bytes": 125840,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationMono-Regular-BGLSEkZz.woff2",
+      "served": false,
+      "sha256": "fcbbe76483956358837f9d76b88e7c05718b72ab51a44bc621691e6439884b4a"
+    },
+    {
+      "bytes": 148312,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSans-Bold-CjLKyBlV.woff2",
+      "served": false,
+      "sha256": "abe2e50e207d9c74d078e0f5a1ec721169ccc7ce6151557ad79dfc8ba1404cdb"
+    },
+    {
+      "bytes": 150948,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSans-BoldItalic-B3a-sK4h.woff2",
+      "served": false,
+      "sha256": "75c36ae5502129079654a3f4670973facf496c65e20c010d74f7fbf33c6406ac"
+    },
+    {
+      "bytes": 153236,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSans-Italic-N7GWcnQa.woff2",
+      "served": false,
+      "sha256": "56db278b6106cca24670971c20575bdd1ab8e6a645d3608bad3bb02c9f651d9d"
+    },
+    {
+      "bytes": 146812,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSans-Regular-2lXMaMe_.woff2",
+      "served": false,
+      "sha256": "49cbcd4158fb720bf5dd65e6c37db02c58b22d0549d02c4224d8f44b66508c1a"
+    },
+    {
+      "bytes": 49308,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSansNarrow-Bold-Dpf-9ZYl.woff2",
+      "served": false,
+      "sha256": "2237549e3a7cb3ab5c269047c74a7d33dc7157d6caca088f1546d7252e9aafb7"
+    },
+    {
+      "bytes": 57012,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSansNarrow-BoldItalic-D12K86iR.woff2",
+      "served": false,
+      "sha256": "005a0668a28be4d2a7d5661d70daab614c9a929dd567fd71c0fbe78fd735bdc6"
+    },
+    {
+      "bytes": 58000,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSansNarrow-Italic-CFK37y1U.woff2",
+      "served": false,
+      "sha256": "16333c2b5d676a039373ee9f62103e6ed2a39b57c535d8a51451f674c8732a5e"
+    },
+    {
+      "bytes": 50260,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSansNarrow-Regular-mZ0-ORmD.woff2",
+      "served": false,
+      "sha256": "3bf69ce90bb6f70b4fdf1eb3bbd927e25a24793b1a5834d8b642385b4cc5692f"
+    },
+    {
+      "bytes": 140928,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSerif-Bold-KojRccje.woff2",
+      "served": false,
+      "sha256": "d845a3481af5a79039ea6b02c346da8458538a7f0faa793ff2ab366a2fd34a09"
+    },
+    {
+      "bytes": 147036,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSerif-BoldItalic-Pw1L_q_z.woff2",
+      "served": false,
+      "sha256": "55da32addec0a25f680ddf8a621ae79475dff5cb44c5699c05e7ff29ef591b1a"
+    },
+    {
+      "bytes": 147624,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSerif-Italic-CI-Q-2Lr.woff2",
+      "served": false,
+      "sha256": "1ca64658f7f531e4f575c538e119b387ed67efd9663594d199282da1cda8b58c"
+    },
+    {
+      "bytes": 146580,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/LiberationSerif-Regular-sCgykiNt.woff2",
+      "served": false,
+      "sha256": "95beb0058c4568d11a5752186b1de80325345dbdc09be665040a70229c4f7781"
+    },
+    {
+      "bytes": 207480,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/NotoSans-Bold-CkoW7IIu.woff2",
+      "served": false,
+      "sha256": "25200a5e071684d0199d1ae6a1e8d868c1c17f23a5004311a2942fe74674c85b"
+    },
+    {
+      "bytes": 212000,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/NotoSans-BoldItalic-CZZUS5WX.woff2",
+      "served": false,
+      "sha256": "081e841bfe1ebfcf3687499ecda39f0a10ea40e0a5d131d74e1f375d1d18a9f1"
+    },
+    {
+      "bytes": 204372,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/NotoSans-Italic-Dz3MR8hn.woff2",
+      "served": false,
+      "sha256": "376f0a4448c3ff51e01a2b9651b6b30d6dc8f263d7dc9b7c42ddbb8c7ad4fa81"
+    },
+    {
+      "bytes": 198056,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/NotoSans-Regular-CJQs236Y.woff2",
+      "served": false,
+      "sha256": "5b19f444b4445d247161b9bd24965569fc5e827d982b32216b2091beab665c47"
+    },
+    {
+      "bytes": 144872,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/NotoSansMono-Bold-Dlfyt8RD.woff2",
+      "served": false,
+      "sha256": "2f1dd33ccc68b2c455479ef2f09920b9d7728b3abacc591c8481f9c7472664b4"
+    },
+    {
+      "bytes": 149240,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/NotoSansMono-Regular-BiIDEO0E.woff2",
+      "served": false,
+      "sha256": "eb85e50750f8a0dec1d7d0e0b1c0b7367fd127b814b9cea0262c230ec16450c4"
+    },
+    {
+      "bytes": 39616,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/OreganoItalic-Regular-Bzb0pmSX.woff2",
+      "served": false,
+      "sha256": "39354af83710a3a491311379839e024484e2fd3c2df087411ed7beeeed0694ae"
+    },
+    {
+      "bytes": 137156,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/PTSans-Bold-B_X6ue3Q.woff2",
+      "served": false,
+      "sha256": "8dac9c371ed1e0d21a46d76cae4b209f1435f76350565e5557bf4954ce465e0e"
+    },
+    {
+      "bytes": 103384,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/PTSans-BoldItalic-CsrJ2Jxr.woff2",
+      "served": false,
+      "sha256": "9c2d39693376aee4d0f93f51ba2e720c69441d1b66fdd2f6a77f13600c5f6691"
+    },
+    {
+      "bytes": 126436,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/PTSans-Italic-X5RZ1Y81.woff2",
+      "served": false,
+      "sha256": "58b0a1cc07aa64f0f0ce054b144e5493d5429af75d1ac3ccc0bd99166547790d"
+    },
+    {
+      "bytes": 132288,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/PTSans-Regular-BoF7YJXg.woff2",
+      "served": false,
+      "sha256": "502c9879033faf9e12cdc5925792757d6398ac6e947f62f9736be09848f4a175"
+    },
+    {
+      "bytes": 144480,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/PTSansNarrow-Bold-ByOM8EAN.woff2",
+      "served": false,
+      "sha256": "db2d67222555640591ce4a38ce8483c96ac310b70e195a6c279d99a09de34e8d"
+    },
+    {
+      "bytes": 109852,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/PTSansNarrow-Regular-BfAIXJ0z.woff2",
+      "served": false,
+      "sha256": "f15f7662587d575f0aafa4b987c37f925a897d416b801857f0a2c03dfd2a8d92"
+    },
+    {
+      "bytes": 2403,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/PasswordPromptSurface-BDpxqdzp.es-BaVm0KnW.js",
+      "served": false,
+      "sha256": "64620253d56b478e127fd05ec2b67c4d12c764f30e8e70fd8532695033c4c0fc"
+    },
+    {
+      "bytes": 8043,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/PdfViewer-DjdsIh6n.es-Q-Jd7VgU.js",
+      "served": false,
+      "sha256": "131875a9db0a7dd88c236b6de735eb2787155c39a6c211ce0d5d5154af149fb7"
+    },
+    {
+      "bytes": 14244,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Selawik-Bold-3deakQ5A.woff2",
+      "served": false,
+      "sha256": "946fc97e8d2fec1d4b183b5e8653e506bd4d045b529d797a7e3d56cd6a7ee744"
+    },
+    {
+      "bytes": 14500,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/Selawik-Regular-CPm2ZfVD.woff2",
+      "served": false,
+      "sha256": "12fe84efc16ae0d3196ccf0f6a84bcc916a05c6fc1a9d5ff9d710a384c525a93"
+    },
+    {
+      "bytes": 60284,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/TeXGyreBonum-Bold-DPZu-Jkt.woff2",
+      "served": false,
+      "sha256": "54875112cd57f25497802cc3b6b180b565ce5ce82e439f12db1dade7dbc2b20e"
+    },
+    {
+      "bytes": 62776,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/TeXGyreBonum-BoldItalic-r4BGMRjF.woff2",
+      "served": false,
+      "sha256": "a1fc783990dc854f94e72aae17cc11f39612cbf3a88a33b1f6553fd2f7e4205d"
+    },
+    {
+      "bytes": 63276,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/TeXGyreBonum-Italic-h_BQp57y.woff2",
+      "served": false,
+      "sha256": "89a9f0e2dbdeb2c3f08d8069fc52ea8147ca2b98e33e0c197d4455cf7e9be6fe"
+    },
+    {
+      "bytes": 60296,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/TeXGyreBonum-Regular-CgSCXIh3.woff2",
+      "served": false,
+      "sha256": "290ac608070a4733a7a2965696d0ef109b28052ca213e806b61b835e9f35d00c"
+    },
+    {
+      "bytes": 53472,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/URWGothic-Book-XxT36zmS.woff2",
+      "served": false,
+      "sha256": "27afe1c2d046a74797ff436c7162c9c64d7ed888af550b20ce6d36bc8cd69258"
+    },
+    {
+      "bytes": 55516,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/URWGothic-BookOblique-KOXJ4FT3.woff2",
+      "served": false,
+      "sha256": "c843b8fe2b56948c366335b8bff1c3180b0c9bf2ffa7e21903458432d39ff806"
+    },
+    {
+      "bytes": 53236,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/URWGothic-Demi-BR07CRS7.woff2",
+      "served": false,
+      "sha256": "9258ca6eae59d3df23a4f34af9abd806b15b962ac11b546a9bafac733c3e492a"
+    },
+    {
+      "bytes": 55992,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/URWGothic-DemiOblique-Blorhhy8.woff2",
+      "served": false,
+      "sha256": "fb292fed0e0d8005c99826be1967c278f7ad2bea0d31735e16f3ccb2b2ed51e8"
+    },
+    {
+      "bytes": 6888163,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/browser-worker-entry-C1U9srg--P4ePi1af.js",
+      "served": false,
+      "sha256": "738d4a531ba105cda354d5b68fab76acce35f2fb02bc4f4780067b6062c0a676"
+    },
+    {
+      "bytes": 8721153,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/docx-engine.es-CZGo6I2G.js",
+      "served": false,
+      "sha256": "3cbc696de6caa00569b91a47667e4275fff8b7d19d628fcfbcc0202d25d066eb"
+    },
+    {
+      "bytes": 12570754,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/dom-worker-entry-G-p5wviT-DYUIPgve.js",
+      "served": false,
+      "sha256": "4a1adc6ec23f4af0c6af953045b588638d6ec50b11a27112839cff4f9ea59291"
+    },
+    {
+      "bytes": 142748,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/index-7aDBfDzi.css",
+      "served": false,
+      "sha256": "c09ce1d553d440f53b8847054a002f3ea1215942a8971fbfedbcc9703cd2531e"
+    },
+    {
+      "bytes": 1468832,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/index-gbIl1kf9.js",
+      "served": false,
+      "sha256": "087ac914678f6df830695a50fe74e52992f1c2ce2a8fa9a872c9833ddf569a94"
+    },
+    {
+      "bytes": 131,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/pdf-DJSSz72k.js",
+      "served": false,
+      "sha256": "beaef6d02ed45076070aeda8df726450d46240eb52fd49c55f50525bab7cd7a1"
+    },
+    {
+      "bytes": 1652122,
+      "path": "release/et-v0.13.0/out/demos/superdoc/assets/pdf.worker.min-t-CYmkGJ.es-BIB1aa7o.js",
+      "served": false,
+      "sha256": "0075d987b7f75199c86a5c636045c53644e8db8b80afce3fce50504fd9379a44"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/superdoc/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 341,
+      "path": "release/et-v0.13.0/out/demos/superdoc/favicon.svg",
+      "served": false,
+      "sha256": "0a8067adddfdca3380a6fd7d42ea0e363b9790323eb41c00b6817c987399e0d0"
+    },
+    {
+      "bytes": 1555,
+      "path": "release/et-v0.13.0/out/demos/superdoc/index.html",
+      "served": false,
+      "sha256": "5acc2266b52658e8fb5ffc38db9a79452ed29643f6149bef2da01405383daae2"
+    },
+    {
+      "bytes": 320,
+      "path": "release/et-v0.13.0/out/demos/wordcraft/SOURCE.txt",
+      "served": false,
+      "sha256": "bce2626cea8fca419e66ab54170bc91f6d44eebf78dad107bd8db5f3b9c2c242"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.13.0/out/demos/wordcraft/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 3769,
+      "path": "release/et-v0.13.0/out/demos/wordcraft/index.html",
+      "served": false,
+      "sha256": "8c3f1ffffc87a4236aefe642f9d3ae0fb9f0acb61c580af30eb3c18b8c162f3a"
+    },
+    {
+      "bytes": 280,
+      "path": "release/et-v0.13.0/out/demos/wordcraft/snippets/eframe-d31a8450ea12dfc1/inline0.js",
+      "served": false,
+      "sha256": "22a98f9d0c5a0532d291bdc9a3050439420b3d11143b4568fcfd3c66fff36995"
+    },
+    {
+      "bytes": 18378,
+      "path": "release/et-v0.13.0/out/demos/wordcraft/wordcraft-fa59e09a3f921e03.ico",
+      "served": false,
+      "sha256": "53a23dcf66260f44d87d4d143d633395f3e967f391eda47e6e9cc3a52f820225"
+    },
+    {
+      "bytes": 97609,
+      "path": "release/et-v0.13.0/out/demos/wordcraft/wordcraft-web-6f42a29f786a876a.js",
+      "served": false,
+      "sha256": "d8cec7749058435c28a54a43be272ce91079053863808207478a83862d7b6ff3"
+    },
+    {
+      "bytes": 23802643,
+      "path": "release/et-v0.13.0/out/demos/wordcraft/wordcraft-web-ecfcf05b3e39b4b5_bg.wasm",
+      "served": false,
+      "sha256": "565ddda76ae529172d295086d876366b7d88348fac23066e504d02f4d763b2b9"
+    },
+    {
+      "bytes": 6624017,
+      "path": "release/et-v0.13.0/out/facts.json",
+      "served": false,
+      "sha256": "bac6ed5fd0cc9454f32062f75718d7f12acb84a4dbecd02588eb6f90f4d1ccb6"
+    },
+    {
+      "bytes": 47,
+      "path": "release/et-v0.13.0/out/release.json",
+      "served": false,
+      "sha256": "c9de214fc9a474c16fe065f657a1e82050761f0ede9fb999c6e8ba3703063592"
+    },
+    {
+      "bytes": 74957,
+      "path": "release/et-v0.13.0/reports/Report A - Serialization by Namespace (2026).docx",
+      "served": false,
+      "sha256": "5a7fcd65fed233e6db15ff25b246c79f021a1676819e21d1118aac97cf7fd6d7"
+    },
+    {
+      "bytes": 112781,
+      "path": "release/et-v0.13.0/reports/Report A - Serialization by Namespace (2026).md",
+      "served": false,
+      "sha256": "94b58def12edf4f681dbc4891588326234bb4000bebedbc782e39449422a2f75"
+    },
+    {
+      "bytes": 44485,
+      "path": "release/et-v0.13.0/reports/Report A2 - Pass-Through (2026).docx",
+      "served": false,
+      "sha256": "837df1c3269e4916a2998a062f053e145ca6711fd02eceeb6cf5546304b1a7cd"
+    },
+    {
+      "bytes": 57574,
+      "path": "release/et-v0.13.0/reports/Report A2 - Pass-Through (2026).md",
+      "served": false,
+      "sha256": "70174cafd95d8956f3b518412e3e90bc5c4f88e2823475ac7957b30e0d96283a"
+    },
+    {
+      "bytes": 44214,
+      "path": "release/et-v0.13.0/reports/Report B - Malformed Parts, Causes and Repair (2026).docx",
+      "served": false,
+      "sha256": "ef3785f78987c18abd9cc35d823e9a2ddfa1b09a002063dfbf581f9922f1715b"
+    },
+    {
+      "bytes": 58859,
+      "path": "release/et-v0.13.0/reports/Report B - Malformed Parts, Causes and Repair (2026).md",
+      "served": false,
+      "sha256": "0ad80d3301a44d40073261527c7e870aee76e7f1d885e159adc3b77f4047b815"
+    },
+    {
+      "bytes": 3565157,
+      "path": "release/et-v0.13.0/reports/Report C - Rendering Versus Word (2026).docx",
+      "served": false,
+      "sha256": "400e519a6162e68d05186e7e3f6883adc8b3ea174da8fdc853a5a0a509cba2c1"
+    },
+    {
+      "bytes": 118817,
+      "path": "release/et-v0.13.0/reports/Report C - Rendering Versus Word (2026).md",
+      "served": false,
+      "sha256": "3739a4c454e47771c1586a4023e7f2f7f6df3182ea3bee14d5bc13f41ac14873"
+    },
+    {
+      "bytes": 28412,
+      "path": "release/et-v0.13.0/reports/Report D - Safety, Resource Bombs and Hostile Input (2026).docx",
+      "served": false,
+      "sha256": "686c3933c9fcaef9cc2c1e24c64a260b73b479970160cf46e05bead58b1c152f"
+    },
+    {
+      "bytes": 66334,
+      "path": "release/et-v0.13.0/reports/Report D - Safety, Resource Bombs and Hostile Input (2026).md",
+      "served": false,
+      "sha256": "5d95dca3a35710e834c7dbec52bc90996aa693c1cd7dca85e5582d2b1a53b280"
+    },
+    {
+      "bytes": 17857,
+      "path": "release/et-v0.13.0/reports/Report D1 - Jubarte on the Hostile Packages (2026).docx",
+      "served": false,
+      "sha256": "1c403cd3b5d953a2294818a910aed53b8e129b2e7ed96a3eb5538eb763072cdc"
+    },
+    {
+      "bytes": 15937,
+      "path": "release/et-v0.13.0/reports/Report D1 - Jubarte on the Hostile Packages (2026).md",
+      "served": false,
+      "sha256": "bcd14a7e3d4786a07529edc03d7b1c5e3ab67fb5bf99eeed3dafbb94f0b2aeb4"
+    },
+    {
+      "bytes": 15461,
+      "path": "release/et-v0.13.0/reports/Report D2 - What Word Protects Against (2026).docx",
+      "served": false,
+      "sha256": "736885af638896465988b2604237ce62802ceb0c40f2932e6e05e9e798cc072d"
+    },
+    {
+      "bytes": 6705,
+      "path": "release/et-v0.13.0/reports/Report D2 - What Word Protects Against (2026).md",
+      "served": false,
+      "sha256": "d9c1b8db9ac335a5765469763fef3585389c4fb6b5f6df3e5cac13503b378945"
+    },
+    {
+      "bytes": 31623,
+      "path": "release/et-v0.13.0/reports/Report E - Speed, Opening and Saving a Document (2026).docx",
+      "served": false,
+      "sha256": "7df1d094f91d82eeb1ce15d370ea7197cb9186e9f68eb12930f621a9c1007cab"
+    },
+    {
+      "bytes": 38728,
+      "path": "release/et-v0.13.0/reports/Report E - Speed, Opening and Saving a Document (2026).md",
+      "served": false,
+      "sha256": "ec49a51632bf84aa021c91af4ca76e2e292f36443b2ee779a6eaa8691526649a"
+    },
+    {
+      "bytes": 93034,
+      "path": "release/et-v0.13.0/reports/Report E2 - Speed in the Browser (2026).docx",
+      "served": false,
+      "sha256": "359b2d2cd8d491d35575522e98c3a10ac07fd9018a384a30276a6db3bc761549"
+    },
+    {
+      "bytes": 381172,
+      "path": "release/et-v0.13.0/reports/Report E2 - Speed in the Browser (2026).md",
+      "served": false,
+      "sha256": "54a995dfbad417135d7af78c5c9d819a34700c85c0334dd979f014fb54fc3a09"
+    },
+    {
+      "bytes": 1248,
+      "path": "release/et-v0.13.0/reports/rendering-openability.md",
+      "served": false,
+      "sha256": "37982009c45aa06ef7643e7e118c9e6efd6a3cbdfc91cf813c78305ed3aa0937"
+    },
+    {
+      "bytes": 57016,
+      "path": "release/et-v0.13.0/reports/vendors.md",
+      "served": false,
+      "sha256": "9932cab22356eb701ec5e01aa9118cad10baa0edac3eacb22f9909ffc7233fd2"
+    }
+  ],
+  "hf": {
+    "repo": "arthrod/editors_trial-artifacts",
+    "revision": "7a9df66820cc24de1e77d31e15627d31c9f3ec3a"
+  },
+  "producer": "editors_trial",
+  "r2_prefix": "et-v0.13.0/",
+  "tag": "et-v0.13.0",
+  "viewer_version": null
+}
