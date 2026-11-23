@@ -927,22 +927,12 @@ def _job_days(summary: dict) -> tuple[str | None, str | None]:
     return start, end
 
 
-def _job_replaced_whole(job: Path) -> bool:
-    """True when every editor of this job was measured again by a later run.
-
-    Such a job contributed nothing; counting it beside the run that replaced it
-    gave the later campaign 164 jobs, not 152 (2026-11-23).
-    """
-    editors = {d.name.split('-', 1)[1] for d in e2_cells._listing(job / 'cells', '*') if '-' in d.name}
-    return bool(editors) and all(e2_cells.job_superseded(job, editor) for editor in editors)
-
-
 def _contributing_job_summaries(roots) -> list[dict]:
     rows = []
     for root in map(Path, roots):
         for job in e2_cells._job_roots(root):
             summary = e2_cells._load_summary(job)
-            if summary and not _job_replaced_whole(job):
+            if summary and not e2_cells.job_replaced_whole(job, summary):
                 rows.append({**summary, "space": _space_name(root)})
     return rows
 

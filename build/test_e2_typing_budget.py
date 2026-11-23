@@ -194,12 +194,51 @@ class CampaignInventory(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def _job(self, root, run_id, index, seed, editors):
+    def _job(self, root, run_id, index, seed, editors, *, order=None, cells=None):
         job = root / "benchmark_typing" / f"{run_id}-{index:03d}"
-        for i, editor in enumerate(editors):
+        job.mkdir(parents=True)
+        for i, editor in enumerate(editors if cells is None else cells):
             (job / "cells" / f"{i:04d}-{editor}" / "attempts").mkdir(parents=True)
-        (job / "summary.json").write_text(json.dumps({"seed": seed, "run_id": f"{run_id}-{index:03d}"}))
+        summary = {"seed": seed, "run_id": f"{run_id}-{index:03d}"}
+        if order is not None:
+            summary["order"] = order
+        (job / "summary.json").write_text(json.dumps(summary))
         return job
+
+    def _replaced(self, job, editors=("onlyoffice",), jobs=(46,)):
+        entry = [{"issue": "later-rerun", "editor": e, "jobs": list(jobs), "kept_runs": ["other-run"]} for e in editors]
+        with E2.e2_cells.superseded_cells(entry):
+            return E2.e2_cells.job_replaced_whole(job)
+
+    def test_the_order_names_the_editors_not_the_folders(self):
+        """Codex: B scheduled but without a cell folder still contributed."""
+        camp = self.base / "c" / "20261122T000000000000Z-1-1"
+        job = self._job(camp, camp.name, 46, 1, [], order=[[0, "onlyoffice"], [0, "betteroffice"]], cells=["onlyoffice"])
+        self.assertFalse(self._replaced(job))
+
+    def test_a_summary_only_job_replaced_whole_is_left_out(self):
+        camp = self.base / "c" / "20261122T000000000000Z-1-1"
+        job = self._job(camp, camp.name, 46, 1, [], order=[[0, "onlyoffice"], [1, "onlyoffice"]], cells=[])
+        self.assertTrue(self._replaced(job))
+
+    def test_a_folder_of_another_shape_keeps_the_job(self):
+        camp = self.base / "c" / "20261122T000000000000Z-1-1"
+        job = self._job(camp, camp.name, 46, 1, [], cells=["onlyoffice"])
+        (job / "cells" / "profile-trace").mkdir()
+        self.assertFalse(self._replaced(job))
+
+    def test_the_host_load_table_skips_a_job_replaced_whole(self):
+        import perf_e2_host_load as HL
+        camp = self.base / "c" / "20261122T000000000000Z-1-1"
+        rerun = self.base / "r" / "20261123T000000000000Z-2-2"
+        for root in (camp, rerun):
+            job = self._job(root, root.name, 46, 1, ["onlyoffice"], order=[[0, "onlyoffice"]])
+            (job / "samples").mkdir()
+            (job / "samples" / "s.json").write_text(json.dumps({"host_load": {"start_1m": 1.0, "end_1m": 1.0, "logical_cpus": 64}}))
+        entry = [{"issue": "later-rerun", "editor": "onlyoffice", "jobs": [46], "kept_runs": [rerun.name]}]
+        with E2.e2_cells.superseded_cells(entry):
+            rows = HL.job_rows([camp, rerun])
+        self.assertEqual([row["job"] for row in rows], [f"{rerun.name}-046"])
 
     def test_a_job_measured_again_for_every_editor_is_not_counted(self):
         camp = self.base / "camp" / "20261122T000000000000Z-1-1"
