@@ -151,7 +151,9 @@ and Nutrient was not read for any report.
     - [x] Re-measured cells may carry their own editor pin, disclosed with both pins and the reason (owner's decision 2026-11-23; f2f59f2)
     - [x] The later section keeps its results in the report part; its method, runs and full tables move to Appendix K (eeba0dc)
     - [x] Disclosed in Appendix K: OnlyOffice capitalisation and hyphens-with-dash off; OpenDoc automatic lists and replace-as-you-type off; Nutrient's CDN; C07 judged after the click's own scroll; OnlyOffice's C10 pixel probe
-    - [ ] `later` entry added to `out/report_e2_runs.json`, facts rebuilt with the carry, report re-rendered
+    - [x] `later` entry added to `out/report_e2_runs.json`, facts rebuilt with the carry, report re-rendered (2026-11-23; outside `perf.e2.later.*` only `ver.cdn.nutrient` differs from v0.12.0's facts)
+    - [x] Read back in full: a viewer's cells say "does not apply" (f781b87, afe31b2); react-docx's mismatch cells say so; jobs replaced whole by reruns are not counted (152 jobs, 76 per seed: 622f231, 72a433c); Space note says "this campaign" (83234c3)
+    - [x] Vendor notes and Report C §2.19 cite the later figures; react-docx's "not measured" and Nutrient's "in no other" gone (bfbc8b9; Codex checked every figure)
     - [ ] `verify_publication.sh --with-word` passes twice
     - [ ] Stacked PRs, release, deploy, seen live in Chrome
 - [x] 8.2 What the figures can and cannot tell
