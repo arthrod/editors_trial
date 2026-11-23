@@ -146,7 +146,7 @@ and Nutrient was not read for any report.
     - [x] Campaign `later`, blocks 2: 152/152 jobs on 15 Spaces (2026-11-22 to 23), every Space FINAL-VERIFIED, bucket duplicate verified and paused
     - [x] OnlyOffice typing rerun (e2-plate, jobs 46, 47, 118, 119): 4/4 passed after hyphens-with-dash off (owner's decision, disclosed)
     - [x] BetterOffice typing rerun (e2-superdoc, jobs 48, 49, 120, 121): all 4 passed; FINAL-VERIFIED (196 files), bucket duplicate verified, Space paused 2026-11-23 07:58 UTC
-    - [ ] OpenDoc typing rerun (e2-genoffice, jobs 50, 51, 122, 123): all 4 done (both sessions of each over the hour, the rest not tried); final verification and pause pending. Each session hits the one-hour budget kept for every editor, so the report says "did not finish within the hour" with the words typed
+    - [x] OpenDoc typing rerun (e2-genoffice, jobs 50, 51, 122, 123): all 4 done (both sessions of each over the hour, the rest not tried); FINAL-VERIFIED (112 files), bucket duplicate verified, Space paused 2026-11-23 09:24 UTC. Each session hits the one-hour budget kept for every editor, so the report says "did not finish within the hour" with the words typed
   - [ ] 8.1.9 Report: the new tools' figures in their own section of Report E2 (a later campaign, like Report E's), facts built by the same rule; gate passes twice; released and seen live
     - [x] Re-measured cells may carry their own editor pin, disclosed with both pins and the reason (owner's decision 2026-11-23; f2f59f2)
     - [x] The later section keeps its results in the report part; its method, runs and full tables move to Appendix K (eeba0dc)
