@@ -145,7 +145,7 @@ and Nutrient was not read for any report.
   - [ ] 8.1.8 Campaign: both seeds on Spaces of the same class as the published runs (`shared_guarded`, cpu-upgrade); `perf/container/e2_publication.json` names the runs. The new editors are planned as a campaign of their own (`--campaign later`, commit 1d36299): the published campaign's nine editors are frozen in `policy.E2_CAMPAIGN_EDITORS`, because wiring react-docx had silently grown its plan from 594 to 726 jobs and renumbered them
     - [x] Campaign `later`, blocks 2: 152/152 jobs on 15 Spaces (2026-11-22 to 23), every Space FINAL-VERIFIED, bucket duplicate verified and paused
     - [x] OnlyOffice typing rerun (e2-plate, jobs 46, 47, 118, 119): 4/4 passed after hyphens-with-dash off (owner's decision, disclosed)
-    - [ ] BetterOffice typing rerun (e2-superdoc, jobs 48, 49, 120, 121): 48, 49 and 120 passed; 121 running
+    - [ ] BetterOffice typing rerun (e2-superdoc, jobs 48, 49, 120, 121): all 4 passed; final verification and pause pending
     - [ ] OpenDoc typing rerun (e2-genoffice, jobs 50, 51, 122, 123): 50, 51 and 122 done (both sessions of each over the hour); 123 running. Each session hits the one-hour budget kept for every editor, so the report says "did not finish within the hour" with the words typed
   - [ ] 8.1.9 Report: the new tools' figures in their own section of Report E2 (a later campaign, like Report E's), facts built by the same rule; gate passes twice; released and seen live
     - [x] Re-measured cells may carry their own editor pin, disclosed with both pins and the reason (owner's decision 2026-11-23; f2f59f2)
