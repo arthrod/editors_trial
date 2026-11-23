@@ -513,3 +513,47 @@ def test_a_range_of_two_pixel_read_rounds_keeps_the_mark_and_the_note():
     assert '| Docen | 40 ms to 81 ms (by pixels) |' in text
     note = [line for line in text.split('\n') if line.startswith('A time marked "(by pixels)"')]
     assert len(note) == 1 and 'was 34 pixels' in note[0]
+
+
+# --- CodeRabbit on #287 ---
+
+def test_a_memory_figure_with_no_typing_before_it_is_marked_and_left_out_of_the_range():
+    """The memory table says 'read two seconds after a short burst of typing'. Where the burst
+    gave no sample in either round (Nutrient takes no typing; react-docx's burst failed in every
+    launch), the reading is marked, explained under the table, and kept out of the range sentence."""
+    facts = {}
+    gib = 2 ** 30
+    for editor, burst in (('plate', None), ('folio', 'first: not enough samples (n = 0 of 10; reasons not_applicable: 10); '
+                                                      'second: not enough samples (n = 0 of 10; reasons not_applicable: 10)'),
+                          ('docen', 'first: not enough samples (n = 0 of 10; reasons crash: 10); '
+                                    'second: not enough samples (n = 0 of 10; reasons crash: 10)')):
+        _put(facts, editor, 'C17', 'prose-500w', 0.6 * gib, measure='quiescent', unit='bytes')
+        if burst:
+            _put(facts, editor, 'C17', 'prose-500w', None, measure='after_edit_burst', reason=burst)
+        else:
+            _put(facts, editor, 'C17', 'prose-500w', 0.7 * gib, measure='after_edit_burst', unit='bytes')
+    facts['perf.e2.plate.C17.quiescent.prose-500w.primary']['stats']['median'] = 0.7 * gib
+    facts['perf.e2.plate.C17.quiescent.prose-500w.reproduction']['stats']['median'] = 0.7 * gib
+    text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
+    assert '| Folio | 614 MiB (no typing before it) |' in text
+    assert '| Docen | 614 MiB (no typing before it) |' in text
+    assert '| Plate.js | 717 MiB |' in text
+    assert 'Folio takes no typed text' in text
+    assert "Docen's burst of typing failed in every launch" in text
+    assert 'At 500 words, 1 of 3 editors have a figure' not in text  # one figure only: no range sentence
+    assert '614 MiB to' not in text
+
+
+def test_a_memory_figure_with_no_typing_before_it_has_no_row_in_the_no_figure_appendix():
+    """It is a single figure, explained under its table, as an opening whose text was not checked."""
+    facts = {}
+    _put(facts, 'folio', 'C17', 'prose-500w', 2 ** 29, measure='quiescent', unit='bytes')
+    _put(facts, 'folio', 'C17', 'prose-500w', None, measure='after_edit_burst',
+         reason='first: not enough samples (n = 0 of 10; reasons not_applicable: 10)')
+    # Another editor with a figure, so that the memory table is printed at all.
+    _put(facts, 'plate', 'C17', 'prose-500w', 2 ** 29, measure='quiescent', unit='bytes')
+    _put(facts, 'plate', 'C17', 'prose-500w', 2 ** 29, measure='after_edit_burst', unit='bytes')
+    assert '(no typing before it)' in summary.short_version(facts, ['folio', 'plate'], DISPLAY)
+    text, counts = summary.no_figure_appendix(facts, ['folio', 'plate'], DISPLAY)
+    assert 'no typing before it' not in text
+    assert counts['perf.e2.no_figure.rows'] == 0

@@ -46,6 +46,23 @@ SECTIONS = (
 DASH = '—'
 UNDER = 'under '
 
+#: CodeRabbit on #287: a memory reading with no typing before it. The table reads memory two
+#: seconds after a burst of typing; where that burst gave no sample in either round, the
+#: reading is marked, explained under the table and kept out of the range sentence.
+NO_TYPING_MARK = ' (no typing before it)'
+NO_TYPING_NOTE = ('A figure marked "(no typing before it)" was read two seconds after a burst of typing that put no '
+                  'text in the document: %s. It is the memory with the document open and nothing typed, so it is not '
+                  'comparable with the other figures of this table.')
+
+
+def _no_typing(facts: dict, editor: str, workload: str) -> str | None:
+    """Why the burst before a memory reading put no text in the document, for a reader; None if it did."""
+    burst = cell_key(editor, 'C17', 'after_edit_burst', workload)
+    if facts.get(burst + '.reproduced') is not False or _has_rounds(facts.get(burst + '.rounds')):
+        return None
+    reason = str(facts.get(burst + '.reason') or '')
+    return 'takes no typed text' if 'not_applicable' in reason else 'failed'
+
 #: #245: the mark of a time read on the pixel witness, and the note its table carries.
 PIXEL_WITNESS = 'settled_pixels'
 PIXEL_MARK = ' (by pixels)'
@@ -257,6 +274,8 @@ def _cell(facts: dict, key: str, editor: str, criterion: str, measure: str, work
         return text + ' (text not checked)', None
     if witnesses == {PIXEL_WITNESS}:
         text += PIXEL_MARK
+    if key == 'memory' and _no_typing(facts, editor, workload):
+        return text + NO_TYPING_MARK, None
     return text, (value, text)
 
 
@@ -338,6 +357,16 @@ def short_version(facts: dict, editors, display) -> str:
                     least.append(rounds['least_changed_pixels'])
         if least:
             lines += ['', PIXEL_NOTE % min(least)]
+        untyped = {}
+        for editor, texts in table:
+            for text, (workload, _title) in zip(texts, sizes):
+                if text.endswith(NO_TYPING_MARK):
+                    untyped.setdefault(editor, _no_typing(facts, editor, workload))
+        if untyped:
+            name = lambda editor: display.get(editor, editor)
+            said = ['%s %s' % (name(e), why) if why != 'failed' else "%s's burst of typing failed in every launch" % name(e)
+                    for e, why in untyped.items()]
+            lines += ['', NO_TYPING_NOTE % ('; '.join(said[:-1]) + ' and ' + said[-1] if len(said) > 1 else said[0])]
         blocks.append('\n'.join(lines))
     return '\n\n'.join(blocks) if blocks else 'not in these runs.'
 
@@ -456,7 +485,7 @@ def no_figure_appendix(facts: dict, editors, display) -> tuple[str, dict]:
         for editor, _texts in table:
             for workload, title in sizes:
                 text, figure = _cell(facts, key, editor, criterion, measure, workload)
-                if figure or text == DASH or text.endswith('(text not checked)'):
+                if figure or text == DASH or text.endswith(('(text not checked)', NO_TYPING_MARK)):
                     continue
                 kind = next((kind for kind, label in _KINDS if label == text), 'ranges')
                 counts['perf.e2.no_figure.%s' % kind] += 1

@@ -260,12 +260,14 @@ The memory of the whole browser with the document open, read two seconds after a
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
 |---|---|---|---|---|
 | BetterOffice | 788 MiB | 946 MiB | 1.1 GiB | 1.8 GiB |
-| Nutrient | 743 MiB | 815 MiB | 777 MiB | 854 MiB |
+| Nutrient | 743 MiB (no typing before it) | 815 MiB (no typing before it) | 777 MiB (no typing before it) | 854 MiB (no typing before it) |
 | OnlyOffice (CryptPad build) | 835 MiB | 866 MiB | 902 MiB | 1003 MiB |
 | OpenDoc | 867 MiB | 873 MiB | 971 MiB | 1.1 GiB |
-| react-docx | 560 MiB | 594 MiB | 837 MiB | 1.9 GiB |
+| react-docx | 560 MiB (no typing before it) | 594 MiB (no typing before it) | 837 MiB (no typing before it) | 1.9 GiB (no typing before it) |
 
-At 500 words, 5 of 5 editors have a figure, from 560 MiB to 867 MiB; at 250,000 words, 5 of 5, from 854 MiB to 1.9 GiB.
+At 500 words, 3 of 5 editors have a figure, from 788 MiB to 867 MiB; at 250,000 words, 3 of 5, from 1003 MiB to 1.8 GiB.
+
+A figure marked "(no typing before it)" was read two seconds after a burst of typing that put no text in the document: Nutrient takes no typed text and react-docx's burst of typing failed in every launch. It is the memory with the document open and nothing typed, so it is not comparable with the other figures of this table.
 
 
 ## Appendix A — What was measured, and how each time was taken
