@@ -34,7 +34,7 @@
  * the block id `opendoc.ai.read` reports. The contract has the event and no
  * getter, so the last one is kept here.
  *
- * Apart from the capitalisation preference below, nothing here changes the
+ * Apart from the three autocorrect preferences below, nothing here changes the
  * editor: it reads classes and attributes, listens to one documented event, and
  * stops observing once it has its answers.
  */
@@ -45,9 +45,25 @@
   // would (webapp/src/autocorrect.mjs, pref opendoc.autoCapitalise). Its default
   // turned the typed "PETITIONER v." into "V." and failed the typing lane's text
   // check although every key arrived.
-  try { window.localStorage.setItem('opendoc.autoCapitalise', 'off'); } catch (e) { /* storage disabled */ }
+  // Owner's decision (2026-11-22, later campaign), disclosed beside it: automatic
+  // numbered and bulleted lists off as well (pref opendoc.autoFormatLists, the
+  // AutoCorrect options' "lists" switch, command tools.autoFormatLists). Its
+  // default turns a typed "1. " at the start of a paragraph into list numbering,
+  // as Word does; its engine read gives the paragraph a list flag but not the
+  // painted number, so the typing lane's text check could not credit the "1.".
+  // Owner's decision (2026-11-22, later campaign), disclosed beside them:
+  // replace-text-as-you-type off (pref opendoc.autocorrect, the AutoCorrect
+  // options' "replace" switch). Its table turns a typed lone "i" into "I"
+  // ("05-7664 Pet. i, 5-6" -> "Pet. I,"), a case change the text check counts as
+  // a mismatch. As when a user switches it off, the unset dashes switch
+  // (opendoc.autoFormatDashes) inherits it and is off too (autocorrect.mjs).
+  try {
+    window.localStorage.setItem('opendoc.autoCapitalise', 'off');
+    window.localStorage.setItem('opendoc.autoFormatLists', 'off');
+    window.localStorage.setItem('opendoc.autocorrect', 'off');
+  } catch (e) { /* storage disabled */ }
   var host = (window.__host = { ready: false, error: null, settled: false, selection: null, readyAt: null, settledAt: null,
-    autocorrect: { capitalise: 'off' } });
+    autocorrect: { capitalise: 'off', lists: 'off', replace: 'off', dashes: 'off (inherits replace)' } });
   var root = document.documentElement;
   var observer = null;
   var readyArmed = false;
