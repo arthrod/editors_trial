@@ -278,7 +278,9 @@ def test_the_committed_manifest_names_its_editor_and_late_rounds():
     assert "d697b98e" in manifest["harness"]["extension"] and "6885707b" in manifest["harness"]["extension"]
 
 
-def test_campaign_counts_become_perf_e2_facts(tmp_path):
+def test_campaign_counts_become_perf_e2_facts(tmp_path, monkeypatch):
+    # These read the run folders; a carry in the caller's environment would skip that path.
+    monkeypatch.delenv("TRIAL_E2_CARRY", raising=False)
     payload = {
         "campaign": {
             "first_pass_kept": 2,
@@ -551,6 +553,8 @@ def test_a_missing_editor_round_run_fails_unless_partial(tmp_path):
 
 
 def test_superseded_cells_reach_the_tables(tmp_path, monkeypatch):
+    # These read the run folders; a carry in the caller's environment would skip that path.
+    monkeypatch.delenv("TRIAL_E2_CARRY", raising=False)
     import perf_e2_tables
     seen = {}
 
