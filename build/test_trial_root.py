@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).with_name("run_trial.sh")
 
 def prologue() -> str:
     lines = SCRIPT.read_text().splitlines()
-    end = next(i for i, l in enumerate(lines) if l.strip() == 'cd "$BASE"')
+    end = next(i for i, l in enumerate(lines) if l.startswith("export TRIAL_ROOT="))
     return "\n".join(lines[: end + 1])
 
 
