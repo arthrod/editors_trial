@@ -1940,7 +1940,11 @@ def _typing_group_for_seed(roots, editor, kind, seed):
                 # build refuses; only for a typing job of this editor (or of no editor
                 # yet), as another editor's table refuses its own (Gitar review, #286).
                 raise ValueError("typing job %s has no readable summary.json: an unfinished job cannot be published" % job)
-            summary = summary or {}
+            if summary is None:
+                # Another editor's unfinished job (or another lane's): read as {}, it
+                # matched this editor and blocked its complete cell with "run policy"
+                # (CodeRabbit on #287). That editor's own table refuses it.
+                continue
             if summary.get('seed') not in (None, seed):
                 continue
             if not _typing_job_of(job, summary, editor, kind):

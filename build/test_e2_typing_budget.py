@@ -286,3 +286,15 @@ class CampaignInventory(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_another_editors_unfinished_typing_job_does_not_block_this_editor(tmp_path):
+    """CodeRabbit on #287: read as ``{}``, another editor's unfinished job reached
+    ``_sessions_from_jobs`` and blocked this editor's complete cell ("run policy")."""
+    base = tmp_path / "run"
+    SupersededTypingJobs._job(None, base, "rerunrun", 48, 1)
+    (base / "benchmark_typing" / "otherrun-46" / "cells" / "0000-onlyoffice").mkdir(parents=True)
+    group = E2._typing_group_for_seed([base], "betteroffice", "throughput", 1)
+    assert group["scheduled"] == 6
+    assert group["blocked"] is False, group.get("block_reason")
+    assert group["block_reason"] is None
