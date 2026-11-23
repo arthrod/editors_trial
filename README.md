@@ -10,7 +10,7 @@ Each per-tool note has also been filed as an issue on that project's own reposit
 
 `fixture/complex.docx` is the corpus. `build/make_fixture.py` writes it as raw OOXML with hand-checked element order, choosing every construct because at least one surveyed editor is documented to lose it: tracked changes and moves, tables with `vMerge`/`gridSpan`, fields, content controls, charts, SmartArt, OLE, comments, headers/footers, multi-section layout, bidi/RTL, math, alternate content and `altChunk`, bookmarks, footnotes/endnotes, permissions, and the namespace prefixes Word itself declares (`wp14`, `w16du`, ...).
 
-The editors are Plate, eigenpal (store and editor), Folio (model and editor), GenOffice, SuperDoc, office-open, Docen, Fidus Writer, WordCraft, canvas-editor, docs.plus, Docxodus, and Apryse WebViewer (closed source, run in a real browser with a trial key from `.env`, which is never committed). Headless lanes are not the browser. LibreOffice is the baseline and counts as a participant.
+The editors are Plate, eigenpal (store and editor), Folio (model and editor), GenOffice, SuperDoc, office-open, Docen, Fidus Writer, WordCraft, canvas-editor, docs.plus, Docxodus, react-docx, OpenDoc, BetterOffice (document model and unedited editor session), OnlyOffice (CryptPad's build), and Apryse WebViewer (closed source, run in a real browser with a trial key from `.env`, which is never committed). react-docx, OpenDoc, BetterOffice and OnlyOffice joined in v0.11.0. Headless lanes are not the browser. LibreOffice is the baseline and counts as a participant.
 
 ### Pipeline
 
@@ -38,7 +38,7 @@ python3 build/make_fixture.py     # only to (re)build fixture/complex.docx
 build/run_trial.sh                # round trips, second pass, scores, facts, reports
 ```
 
-The scripts hardcode `BASE=/Users/arthrod/temp/T/editors_trial` (`run_trial.sh`, `run_all.sh`, `run_second_pass.sh`, `score_all.py`, `score_extra.py`); adjust it for another checkout.
+The scripts (`run_trial.sh`, `run_all.sh`, `run_second_pass.sh`, `score_all.py`, `score_extra.py`) work from the checkout they sit in; set `TRIAL_ROOT` to point them at another one.
 
 ## Hostile packages
 

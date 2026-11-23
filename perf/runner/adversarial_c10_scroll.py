@@ -594,10 +594,12 @@ def throttle_refusal_reason(row) -> str | None:
     delta = accounting.get("delta") or {}
     if not isinstance(delta, dict):
         return None
-    # Lax layer (owner decision 2026-11-11): the same tolerance the run
-    # recorder applies -- max(1 ms, 1 % of the sample's span) of throttled
-    # time is tolerated and disclosed on the row, only more refuses. A row
-    # without a recorded span keeps the 1 ms floor (never the percentage).
+    # Lax layer: the same tolerance the run recorder applies -- since the
+    # owner decision of 2026-11-22, max(100 ms, 10 % of the sample's span) of
+    # throttled time (was max(1 ms, 1 %), 2026-11-11) is tolerated and
+    # disclosed on the row, only more refuses. A row without a recorded span
+    # keeps the 100 ms floor (never the percentage). The constants live in
+    # perf/runner/browser_throttle.py.
     from perf.runner.browser_throttle import throttled_within_tolerance
 
     if not throttled_within_tolerance(delta, accounting.get("span_ms")):

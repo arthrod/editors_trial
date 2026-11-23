@@ -29,7 +29,12 @@ date**, and **never to a version older than the one currently pinned**.
   current pin stays. A release never measures older code than the last one.
 
 `build/update_editors.sh` applies the rule (it calls `build/pin_versions.py`;
-`RELEASE_DATE=YYYY-MM-DD` overrides today). Do not move a pin by hand.
+`RELEASE_DATE=YYYY-MM-DD` overrides today). Do not move a pin by hand, with
+one exception: OnlyOffice's converter is a GitHub release archive pinned in
+`harness/onlyoffice/pin.json`, and `build/pin_versions.py` does not choose
+release tags yet, so for a release that file is edited to the newest tag
+published on or before the cutoff; `build/update_editors.sh` then fetches it
+and checks its SHA-512.
 
 ### 2. If anything changed, every report is re-measured
 

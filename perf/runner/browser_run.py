@@ -358,8 +358,9 @@ class BrowserRun:
                 publication_block_reason='cpu_accounting_unavailable',
             )
         elif accounting['available']:
-            # Lax layer (owner decision 2026-11-11): throttling within
-            # max(1 ms, 1 % of the sample's span) keeps the sample, with the
+            # Lax layer: throttling within max(100 ms, 10 % of the sample's
+            # span) (owner decision 2026-11-22; was max(1 ms, 1 %), 2026-11-11;
+            # constants in perf/runner/browser_throttle.py) keeps the sample, with the
             # throttled microseconds recorded on the row so the trial and the
             # report can disclose what was tolerated.
             _events = _delta.get('nr_throttled')
