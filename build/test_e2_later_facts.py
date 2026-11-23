@@ -298,6 +298,45 @@ class LaterFacts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no SHA-256 to compare"):
             self.build({"roots": [str(r) for r in self.published], "later": {"roots": [str(r) for r in later]}})
 
+    def typing_trials(self, roots, editor: str, sha: str) -> None:
+        """A typing trial as benchmark_typing writes it: the brief's SHA-256 at the top level, no document name."""
+        for root in roots:
+            for rep in range(2):
+                T._write_trial(root, rep, editor, "TYPING", outcome="measured", samples=[30.0],
+                               environment={**T._env(editor)}, fixture_sha256=sha)
+
+    def test_a_typing_brief_other_than_the_published_one_is_refused(self):
+        self.carry()
+        self.rewrite_record(typing_brief={"sha256": ["brief-sha"], "note": "fixture"})
+        later = farm(self.base / "later", ["opendoc"], tag="later")
+        self.typing_trials(later, "opendoc", "another-brief")
+        with self.assertRaisesRegex(ValueError, "other documents.*typing brief"):
+            self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+
+    def test_the_published_typing_brief_passes_and_the_comparison_says_where_its_hash_comes_from(self):
+        self.carry()
+        self.rewrite_record(typing_brief={"sha256": ["brief-sha"], "note": "fixture"})
+        later = farm(self.base / "later", ["opendoc"], tag="later")
+        self.typing_trials(later, "opendoc", "brief-sha")
+        out = self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+        self.assertEqual(out["perf.e2.later.measured"], "measured")
+        self.assertIn("typing brief", out["perf.e2.later.comparison"])
+
+    def test_a_measured_trial_with_no_document_name_is_refused(self):
+        later = farm(self.base / "later", ["opendoc"], tag="later")
+        T._write_trial(later[0], 0, "opendoc", "C10", outcome="measured", samples=[20.0],
+                       environment={**T._env("opendoc"), "fixture_sha256": "sha-500w"})
+        with self.assertRaisesRegex(ValueError, "no document name.*OpenDoc|no document name.*opendoc"):
+            self.build({"roots": [str(r) for r in self.published], "later": {"roots": [str(r) for r in later]}})
+
+    def test_the_committed_record_holds_the_committed_typing_brief(self):
+        import hashlib
+        record = json.loads((ROOT / "build" / "e2_published_documents.json").read_text())
+        brief = ROOT / "perf" / "fixtures" / "briefs" / "sg-brief-13000w.txt"
+        self.assertEqual(record["typing_brief"]["sha256"], [hashlib.sha256(brief.read_bytes()).hexdigest()])
+        self.assertIn("4488f9b6", record["typing_brief"]["note"])
+        self.assertIn("377b6320", record["typing_brief"]["note"])
+
     def test_a_changed_generator_is_refused(self):
         self.carry()
         gen = json.loads(json.dumps(self.record["generators"]))

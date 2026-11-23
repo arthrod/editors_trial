@@ -1606,22 +1606,37 @@ def _kind_text(kind: tuple) -> str:
     return "%s hosts with %s, a CPU quota of %s and %s logical CPUs" % kind
 
 
+TYPING_DOCUMENT = "typing brief"
+
+
+def _trial_document(row) -> str:
+    """The name a trial's document is compared under: its workload, or for a typing trial (benchmark_typing
+    records the brief's SHA-256 but no workload) the typing brief. Empty when the trial names neither."""
+    workload = e2_cells.trial_workload(row)
+    if workload:
+        return workload
+    return TYPING_DOCUMENT if row.get("criterion_id") == "TYPING" else ""
+
+
 def _documents(roots) -> dict:
     """Each document name a campaign's trials opened, with the SHA-256 of every file opened under it."""
     docs: dict = {}
     for root in roots:
         for row in _iter_trials(Path(root)):
             sha = (row.get("environment") or {}).get("fixture_sha256") or row.get("fixture_sha256")
-            workload = e2_cells.trial_workload(row)
-            if workload and sha:
-                docs.setdefault(workload, set()).add(sha)
+            name = _trial_document(row)
+            if name and sha:
+                docs.setdefault(name, set()).add(sha)
     return docs
 
 
 def _published_documents() -> tuple[dict, set]:
     record = json.loads(Path(PUBLISHED_DOCUMENTS).read_text())
-    return ({name: set(shas) for name, shas in record["documents"].items()},
-            set(record.get("generated_per_sample") or ()))
+    docs = {name: set(shas) for name, shas in record["documents"].items()}
+    brief = (record.get("typing_brief") or {}).get("sha256")
+    if brief:
+        docs[TYPING_DOCUMENT] = set(brief)
+    return docs, set(record.get("generated_per_sample") or ())
 
 
 def _published_record() -> dict:
@@ -1629,16 +1644,19 @@ def _published_record() -> dict:
 
 
 def _unhashed_documents(roots, per_sample: set) -> list:
-    """Measured trials of a fixed document that record no SHA-256: they could not be compared, so they refuse."""
+    """Measured trials of a fixed document that record no SHA-256, or that name no document at all: they could
+    not be compared, so they refuse."""
     missing = set()
     for root in roots:
         for row in _iter_trials(Path(root)):
             if row.get("outcome") != "measured":
                 continue
-            workload = e2_cells.trial_workload(row)
+            name = _trial_document(row)
             sha = (row.get("environment") or {}).get("fixture_sha256") or row.get("fixture_sha256")
-            if workload and workload not in per_sample and not sha:
-                missing.add("%s (%s)" % (workload, row.get("editor_id")))
+            if not name:
+                missing.add("a %s trial with no document name (%s)" % (row.get("criterion_id"), row.get("editor_id")))
+            elif name not in per_sample and not sha:
+                missing.add("%s (%s)" % (name, row.get("editor_id")))
     return sorted(missing)
 
 
@@ -1787,6 +1805,10 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
                       "records them from its run summaries." % (
                           machine, published.get("perf.e2.carried_from", "an earlier release"), hashed,
                           Path(PUBLISHED_DOCUMENTS).name))
+        if TYPING_DOCUMENT in new_docs:
+            comparison += (" The typing brief is checked the same way: its run records name no document, and the "
+                           "record takes its SHA-256 from the brief's file at the harness commits the campaign above "
+                           "ran.")
     if per_sample:
         generated = sorted(per_sample)
         one = len(generated) == 1

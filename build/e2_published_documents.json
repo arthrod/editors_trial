@@ -61,5 +61,11 @@
    "note": "generate.py at the published campaign's first-pass (4488f9b6) and last (377b6320) harness commits, and the micro-search row of perf/fixtures/profiles.size_ladder()"
   }
  },
- "machines_source": "host_class and host.cpu_model, cpu_quota, cpu_cores_logical of the same 289 run summaries"
+ "machines_source": "host_class and host.cpu_model, cpu_quota, cpu_cores_logical of the same 289 run summaries",
+ "typing_brief": {
+  "sha256": [
+   "b59c14da5144a28531cc7d0a59829f18503e40c8a1f4b6e09837800861f42b99"
+  ],
+  "note": "perf/fixtures/briefs/sg-brief-13000w.txt at the published campaign's first-pass (4488f9b6) and last (377b6320) harness commits, the same bytes at both; benchmark_typing records this file's SHA-256 as fixture_sha256 and names no workload, so the run summaries do not list it"
+ }
 }
