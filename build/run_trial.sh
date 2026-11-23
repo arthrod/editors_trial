@@ -22,7 +22,10 @@
 #
 # usage: build/run_trial.sh
 set -uo pipefail
-BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+BASE="$(cd "${TRIAL_ROOT:-$(dirname "$0")/..}" && pwd)" || exit 1
+# Absolute, and handed down: the scripts below read TRIAL_ROOT again after the cd, where a
+# relative value would point below the checkout.
+export TRIAL_ROOT="$BASE"
 cd "$BASE"
 bash build/run_all.sh
 bash build/run_second_pass.sh

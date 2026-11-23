@@ -106,7 +106,8 @@ echo "npm     @univerjs/presets@$UV, @univerjs/preset-docs-core@$UV"
 
 # OnlyOffice's converter is a GitHub release archive, pinned by tag and SHA-512 in
 # harness/onlyoffice/pin.json. build/pin_versions.py does not choose release tags yet,
-# so that file is edited for a release (newest tag published on or before the cutoff);
+# so that file is edited for a release (newest tag published on or before the cutoff, unless the
+# current pin is newer: then it stays). This step does not compare versions;
 # this only fetches and checks what it names.
 echo "fetch   onlyoffice x2t ($(node -p "require('./harness/onlyoffice/pin.json').x2t.tag"))"
 ( cd harness/onlyoffice && node fetch.mjs ) >/tmp/update_onlyoffice.log 2>&1

@@ -33,8 +33,9 @@ date**, and **never to a version older than the one currently pinned**.
 one exception: OnlyOffice's converter is a GitHub release archive pinned in
 `harness/onlyoffice/pin.json`, and `build/pin_versions.py` does not choose
 release tags yet, so for a release that file is edited to the newest tag
-published on or before the cutoff; `build/update_editors.sh` then fetches it
-and checks its SHA-512.
+published on or before the cutoff, unless the current pin is newer than that tag:
+then the pin stays, as above. `build/update_editors.sh` then fetches it and
+checks its SHA-512; it does not compare versions, so nothing else stops an older tag.
 
 ### 2. If anything changed, every report is re-measured
 
