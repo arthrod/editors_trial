@@ -1861,7 +1861,13 @@ def _typing_group_for_seed(roots, editor, kind, seed):
             # pooling both counted its schedule twice ("n = 6 of 12", 2026-11-23).
             if e2_cells.job_superseded(job, editor):
                 continue
-            summary = e2_cells._load_summary(job) or {}
+            summary = e2_cells._load_summary(job)
+            if summary is None and job.name.rpartition('-')[2].isdigit() and (job / 'cells').is_dir():
+                # A job pulled mid-run has cells but no summary yet: read as {}, it
+                # matched every editor and blocked their typing cells ("run policy",
+                # 2026-11-23). Skipping it would hide an unfinished measurement.
+                raise ValueError("typing job %s has no readable summary.json: an unfinished job cannot be published" % job)
+            summary = summary or {}
             if summary.get('seed') not in (None, seed):
                 continue
             if not _typing_job_of(job, summary, editor, kind):

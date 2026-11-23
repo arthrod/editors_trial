@@ -124,6 +124,16 @@ class SupersededTypingJobs(unittest.TestCase):
             without = E2._typing_group_for_seed([camp, rerun], "betteroffice", "throughput", 1)
             self.assertEqual(without["scheduled"], 12)
 
+    def test_a_job_pulled_mid_run_without_its_summary_is_refused_by_name(self):
+        """Codex review: an unfinished job has cells but no summary; it must not be read as every editor's."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "run"
+            self._job(base, "rerunrun", 48, 1)
+            half = base / "benchmark_typing" / "otherrun-123"
+            (half / "cells").mkdir(parents=True)
+            with self.assertRaisesRegex(ValueError, "otherrun-123 has no readable summary.json"):
+                E2._typing_group_for_seed([base], "betteroffice", "throughput", 1)
+
 
 if __name__ == "__main__":
     unittest.main()
