@@ -1902,6 +1902,58 @@ def _typing_progress_text(progress) -> str:
     return 'characters typed in the refused sessions that recorded progress: ' + ', '.join(f'{value:,}' for value in typed)
 
 
+def _typing_budget_text(roots, editor, kind, seed, refusals=None):
+    """"did not finish within the hour" when every session tried ran into the time budget, else None.
+
+    Later campaign, 2026-11-23: OpenDoc's typing sessions all ran into the
+    3,600 s budget every editor gets (``editor_timeout`` / ``budget_exceeded``)
+    and the job did not try the rest; its summary says
+    ``insufficient_typing_sessions``, which hides why. The owner keeps the budget
+    the same for every editor, so the report says so with the words typed.
+
+    ``refusals`` is the seed group's own tally (vetoes, quarantine and unreadable
+    attempts included): any refusal other than the budget and the sessions not
+    tried after it means the cell keeps its usual explanation (codex review).
+    """
+    if refusals is not None:
+        tally = dict(refusals)
+        if not tally.get('budget_exceeded') or set(tally) - {'budget_exceeded', _TYPING_NOT_TRIED}:
+            return None
+    stopped, untried = [], 0
+    for root in roots:
+        # The attempt reader drops a row's own seed; the job's summary names it.
+        for _, path, row in e2_cells._iter_attempt_rows(Path(root)):
+            if (row.get('editor_id') != editor or row.get('criterion_id') != 'TYPING'
+                    or row.get('session_kind') != kind
+                    or (e2_cells._load_summary(Path(path).parents[3]) or {}).get('seed') != seed):
+                continue
+            why = row.get('failure_reason')
+            if row.get('outcome') == 'not_run' and why == _TYPING_NOT_TRIED:
+                untried += 1
+            elif row.get('refusal_code') == 'editor_timeout' and why == 'budget_exceeded':
+                stopped.append(row)
+            else:
+                return None
+    if not stopped:
+        return None
+    if refusals is not None and (len(stopped), untried) != (tally.get('budget_exceeded', 0), tally.get(_TYPING_NOT_TRIED, 0)):
+        return None
+    # Only the campaign's own budget, the one every editor gets, is called that.
+    if {row.get('budget_s') for row in stopped} - {TYPING_BUDGET_S}:
+        return None
+    words = [row.get('words_typed') for row in stopped]
+    words = [w for w in words if isinstance(w, (int, float)) and not isinstance(w, bool)]
+    text = 'did not finish within the hour: %d session%s stopped at the one-hour limit every editor has' % (
+        len(stopped), '' if len(stopped) == 1 else 's')
+    if words:
+        listed = [f'{w:,}' for w in words]
+        joined = listed[0] if len(listed) == 1 else ', '.join(listed[:-1]) + ' and ' + listed[-1]
+        text += ', with %s word%s typed' % (joined, '' if len(words) == 1 and words[0] == 1 else 's')
+    if untried:
+        text += '; the other %d %s not tried' % (untried, 'was' if untried == 1 else 'were')
+    return text
+
+
 def _typing_facts_group(group, fields, *, published: bool = False):
     if published:
         return {**group, "kept": [{name: row[name] for name in fields if name in row} for row in group["kept"]]}
@@ -1911,6 +1963,8 @@ def _typing_facts_group(group, fields, *, published: bool = False):
 #: Rows a typing job writes for an editor it cannot type into: the not-applicable launch,
 #: and the repetitions it then does not try ("typing_sessions_unreachable").
 _TYPING_NOT_TRIED = 'typing_sessions_unreachable'
+#: The typing budget every editor gets (``--budget-s``, default 3,600 s).
+TYPING_BUDGET_S = 3600.0
 
 
 def typing_does_not_apply(roots, editor, kind):
@@ -1966,6 +2020,8 @@ def typing_table(facts, roots, editor, kind):
                     f"{name}: wrong schedule (n = {kept_n} of {scheduled}; "
                     f"this campaign schedules {TYPING_PUBLICATION_SESSIONS} sessions){suffix}"
                 )
+            elif kept_n == 0 and (budget := _typing_budget_text(roots, editor, kind, group.get('seed'), group['refusals'])):
+                reasons.append(f"{name}: {budget}")
             else:
                 reasons.append(
                     f"{name}: not enough sessions or run blocked (n = {kept_n} of {scheduled}; "
