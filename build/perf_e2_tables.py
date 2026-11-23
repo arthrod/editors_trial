@@ -1771,6 +1771,12 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
         new_runners = {row.get("runner") for row in summaries}
         if not new_runners <= old_runners:
             raise ValueError("the later campaign ran other lanes: %s" % sorted(new_runners - old_runners))
+        # The report promises the same lanes and documents, so a later campaign
+        # that left some out is refused too, not built with figures missing
+        # (CodeAnt on #285, 2026-11-23).
+        if not old_runners <= new_runners:
+            raise ValueError("the later campaign left out lanes the published campaign ran: %s"
+                             % sorted(old_runners - new_runners))
         if not reference:
             raise ValueError("the published campaign records no machine type to compare the later campaign with")
         if not kinds <= reference:
@@ -1787,6 +1793,10 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
         unhashed = _unhashed_documents(roots, per_sample)
         if unhashed:
             raise ValueError("the later campaign measured documents with no SHA-256 to compare: %s" % ", ".join(unhashed))
+        left_out = sorted(set(old_docs) - set(new_docs))
+        if left_out:
+            raise ValueError("the later campaign left out documents the published campaign measured: %s"
+                             % ", ".join(left_out))
         _generator_check({w for w in per_sample if w in new_docs}, record)
         c10 = _c10_onlyoffice_text(roots)
         view = _campaign_view(roots)

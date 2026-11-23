@@ -285,6 +285,28 @@ class LaterFacts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "other lanes"):
             self.build({"roots": [str(r) for r in self.published], "later": {"roots": [str(r) for r in later]}})
 
+    def test_a_lane_left_out_is_refused(self):
+        # CodeAnt on #285 (2026-11-23): the report promises the same lanes; a
+        # later campaign that ran fewer must not build with figures missing.
+        self.rewrite_record(runners=["benchmark_input", "benchmark_document"])
+        self.carry()
+        later = farm(self.base / "later", ["opendoc"], tag="later")
+        with self.assertRaisesRegex(ValueError, "left out lanes.*benchmark_document"):
+            self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+
+    def test_a_document_left_out_is_refused(self):
+        self.rewrite_record(documents={"prose-500w": ["sha-500w"], "prose-5kw": ["sha-5kw"]})
+        self.carry()
+        later = farm(self.base / "later", ["opendoc"], tag="later")
+        with self.assertRaisesRegex(ValueError, "left out documents.*prose-5kw"):
+            self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+        # Against the published run folders as well.
+        os.environ.pop("TRIAL_E2_CARRY")
+        published = self.published + farm(self.base / "pub5k", ["plate"], tag="pub5k", sha="sha-5kw",
+                                          workload="prose-5kw")
+        with self.assertRaisesRegex(ValueError, "left out documents.*prose-5kw"):
+            self.build({"roots": [str(r) for r in published], "later": {"roots": [str(r) for r in later]}})
+
     def test_under_the_carry_every_published_machine_type_counts(self):
         self.carry()
         self.rewrite_record(machines=[["shared_guarded", "fixture CPU", "8", "16"],
