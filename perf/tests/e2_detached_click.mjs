@@ -9,12 +9,12 @@
  * page must keep the old verdict (a detached target is not inside).
  */
 import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const repo = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const require = createRequire(`${repo}/harness/ui/package.json`);
 const { chromium } = require('playwright');
-const { INSTALL_INPUT_TAP, pointerTargetInside } = await import(
+const { INSTALL_INPUT_TAP, pointerTargetInside, armInsideSelector } = await import(
   pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href
 );
 
@@ -45,6 +45,19 @@ try {
     const verdict = await pointerTargetInside(page, '#ed');
     const recordedPath = await page.evaluate(() => Array.isArray(window.__perfCriteria.targetPath));
     console.log(JSON.stringify({ reactDocx, verdict, recordedPath }));
+    await page.close();
+  }
+  // The selector matches the replaced element itself (CodeAnt on #283): the
+  // path holds the detached copy, the matched parts the new one. A click on the
+  // line is inside; a click in the editor below the line is not.
+  for (const [where, y] of [['on_line', 20], ['below_line', 150]]) {
+    const page = await browser.newPage({ viewport: { width: 600, height: 400 } });
+    await page.setContent(PAGE(true));
+    await page.evaluate(INSTALL_INPUT_TAP);
+    if (armInsideSelector) await armInsideSelector(page, { editable: { selector: '#line' } });
+    await page.mouse.click(20, y);
+    const verdict = await pointerTargetInside(page, '#line');
+    console.log(JSON.stringify({ reactDocx: `replaced_${where}`, verdict }));
     await page.close();
   }
 } finally {

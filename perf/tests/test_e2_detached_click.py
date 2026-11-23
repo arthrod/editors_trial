@@ -5,6 +5,9 @@ A1  On a page without react-docx's global, a click whose target the editor
     and no event path is recorded.
 A2  On react-docx's page, the same click is judged by its ancestors at the
     event: inside, flagged ``target_detached``.
+A3  On react-docx's page, when the selector matches the replaced element
+    itself, the click on it is judged at the event (inside) and a click beside
+    it is outside.
 """
 
 from __future__ import annotations
@@ -46,6 +49,16 @@ class DetachedClickGateTests(unittest.TestCase):
         row = self.cases[True]
         self.assertIs(row["verdict"]["inside"], True, row)
         self.assertTrue(row["verdict"].get("target_detached"), row)
+
+    def test_a_replaced_matched_element_is_judged_at_the_event(self):
+        # A3 (CodeAnt on #283, 2026-11-23): the selector matches the element
+        # react-docx replaces; the click on it is inside, flagged as judged at
+        # the event, and a click beside it stays outside.
+        on_line = self.cases["replaced_on_line"]["verdict"]
+        self.assertIs(on_line["inside"], True, on_line)
+        self.assertIs(on_line["inside_at_event"], True, on_line)
+        below = self.cases["replaced_below_line"]["verdict"]
+        self.assertIs(below["inside"], False, below)
 
 
 if __name__ == "__main__":

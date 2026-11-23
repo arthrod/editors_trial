@@ -64,5 +64,34 @@ class ClickScrollTests(unittest.TestCase):
         self.assertEqual(row["scrolled"], 18, row)
         self.assertEqual(row["onLine"], {"on_line": True, "after_click_scroll": True}, row)
 
+    def test_a_scroll_between_the_caret_and_its_delta_is_refused_not_judged(self):
+        # CodeRabbit on #283 (2026-11-23): the caret and the click's scroll delta
+        # were read in two evaluations; a scroll tick between them shifted the
+        # line by the wrong amount. The delta is now read on both sides of the
+        # caret, and the point is refused when the two reads differ.
+        script = """
+        import { readStateWithClickScroll } from './perf/runner/criteria_input.mjs';
+        const fake = (deltas) => { let i = 0; return { evaluate: async () => deltas[i++] }; };
+        const out = {};
+        for (const [name, deltas] of Object.entries({
+          steady: [18, 18], absent: [null, null], moved: [0, 18], lost: [18, null],
+        })) {
+          const r = await readStateWithClickScroll(fake(deltas), async () => ({ caret: 'c' }));
+          out[name] = { stable: r.stable, scrolled: r.scrolled, state: r.state };
+        }
+        process.stdout.write(JSON.stringify(out));
+        """
+        proc = subprocess.run(["node", "--input-type=module", "-e", script], cwd=str(REPO),
+                              capture_output=True, text=True, timeout=60)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        out = json.loads(proc.stdout)
+        self.assertEqual(out["steady"], {"stable": True, "scrolled": 18, "state": {"caret": "c"}})
+        self.assertTrue(out["absent"]["stable"])
+        self.assertFalse(out["moved"]["stable"])
+        self.assertFalse(out["lost"]["stable"])
+        src = (REPO / "perf/runner/criteria_input.mjs").read_text()
+        self.assertIn("click_scroll_moved_during_caret_read", src)
+
+
 if __name__ == "__main__":
     unittest.main()
