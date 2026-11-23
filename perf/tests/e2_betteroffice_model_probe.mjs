@@ -2,9 +2,9 @@
  * Read a BetterOffice-shaped fake host through every shared model reader.
  * Prints the readers' results as JSON.
  */
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const repo = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const { loadPlaywright } = await import(pathToFileURL(`${repo}/perf/runner/witness.mjs`).href);
 const surface = await import(pathToFileURL(`${repo}/perf/runner/edit_surface.mjs`).href);
 const { READ_SURFACE_STATE } = await import(pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href);

@@ -47,6 +47,8 @@ class BetterOfficeModelReaders(unittest.TestCase):
         from perf.runner.browser_hosts import StaticHost
 
         cls.server = StaticHost(HOSTS)
+        # A cleanup, not tearDownClass: it runs when the probe below fails too.
+        cls.addClassCleanup(cls.server.stop)
         proc = subprocess.run(
             [node, str(PROBE), "%s/e2_betteroffice_model.html" % cls.server.url],
             capture_output=True, text=True, timeout=60, cwd=str(REPO),
@@ -54,11 +56,6 @@ class BetterOfficeModelReaders(unittest.TestCase):
         if proc.returncode != 0:
             raise AssertionError("probe failed: %s\n%s" % (proc.stdout, proc.stderr))
         cls.payload = json.loads(proc.stdout)
-
-    @classmethod
-    def tearDownClass(cls):
-        if cls.server is not None:
-            cls.server.stop()
 
     def test_usable_is_the_host_ready_flag(self):
         self.assertEqual(self.payload["usable"], {"1": True, "0": False})
@@ -87,6 +84,40 @@ class BetterOfficeModelReaders(unittest.TestCase):
     def test_other_model_editors_are_unchanged(self):
         self.assertEqual(self.payload["canvas_usable"], CANVAS_USABLE)
         self.assertEqual(self.payload["docen_usable"], DOCEN_USABLE)
+
+
+class ServerCleanup(unittest.TestCase):
+    """CodeRabbit on #283 (2026-11-23): a probe that fails in setUpClass skips
+    tearDownClass, so the static server stayed up. The stop is now a class
+    cleanup registered as soon as the server starts."""
+
+    def test_a_failed_probe_still_stops_the_server(self):
+        import sys
+        import tempfile
+        from unittest import mock
+
+        stopped = []
+
+        class FakeHost:
+            url = "http://127.0.0.1:1"
+
+            def __init__(self, root):
+                pass
+
+            def stop(self):
+                stopped.append(True)
+
+        module = sys.modules[__name__]
+        with tempfile.TemporaryDirectory() as tmp:
+            failing = Path(tmp) / "fail.mjs"
+            failing.write_text("process.exit(1);\n")
+            with mock.patch("perf.runner.browser_hosts.StaticHost", FakeHost), \
+                    mock.patch.object(module, "PROBE", failing):
+                suite = unittest.defaultTestLoader.loadTestsFromTestCase(BetterOfficeModelReaders)
+                result = unittest.TestResult()
+                suite.run(result)
+        self.assertTrue(result.errors, "the failing probe should fail the class setup")
+        self.assertEqual(stopped, [True])
 
 
 if __name__ == "__main__":
