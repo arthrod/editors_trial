@@ -23,7 +23,6 @@ moved on on 2026-11-22, so the Spaces of the later campaign get the pinned build
 copied from a machine that fetched it while the site still served it.
 """
 import os
-import shutil
 import hashlib
 import sys
 import urllib.request
@@ -52,8 +51,9 @@ def main() -> int:
             print(f"{name}: present")
             continue
         copy = Path(os.environ["OPENDOC_ENGINE_DIR"]) / name if os.environ.get("OPENDOC_ENGINE_DIR") else None
-        if copy is not None and copy.is_file() and hashlib.sha256(copy.read_bytes()).hexdigest() == want:
-            shutil.copyfile(copy, path)
+        data = copy.read_bytes() if copy is not None and copy.is_file() else None
+        if data is not None and hashlib.sha256(data).hexdigest() == want:
+            path.write_bytes(data)  # the bytes that were hashed, not a second read of the file
             print(f"{name}: copied from {copy.parent} (the pinned build, SHA-256 checked)")
             continue
         req = urllib.request.Request(SITE + name, headers={"User-Agent": "docx-benchmark-harness"})

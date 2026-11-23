@@ -60,6 +60,29 @@ class FetchEngine(unittest.TestCase):
         for name, data in self.files.items():
             self.assertEqual((self.checkout / "webapp" / "pkg" / name).read_bytes(), data)
 
+    def test_the_bytes_installed_from_the_local_copy_are_the_bytes_that_were_hashed(self):
+        # Gitar review on #285: a copy that changes between the hash and the copy must not be installed.
+        copy = self.base / "copy"
+        copy.mkdir()
+        for name, data in self.files.items():
+            (copy / name).write_bytes(data)
+        os.environ["OPENDOC_ENGINE_DIR"] = str(copy)
+
+        real = hashlib.sha256
+
+        def hash_then_swap(data=b""):
+            digest = real(data)
+            for name, good in self.files.items():  # the copy just hashed changes right after its hash
+                if data == good:
+                    (copy / name).write_bytes(b"swapped after the hash")
+            return digest
+
+        with mock.patch.object(self.m.hashlib, "sha256", side_effect=hash_then_swap), \
+                mock.patch.object(self.m.urllib.request, "urlopen", side_effect=AssertionError("the site was asked")):
+            self.assertEqual(self.run_main(), 0)
+        for name, data in self.files.items():
+            self.assertEqual((self.checkout / "webapp" / "pkg" / name).read_bytes(), data)
+
     def test_a_local_copy_of_another_build_is_not_taken_and_the_site_is_checked_as_before(self):
         copy = self.base / "copy"
         copy.mkdir()
