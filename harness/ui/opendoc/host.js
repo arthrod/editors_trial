@@ -57,13 +57,27 @@
   // ("05-7664 Pet. i, 5-6" -> "Pet. I,"), a case change the text check counts as
   // a mismatch. As when a user switches it off, the unset dashes switch
   // (opendoc.autoFormatDashes) inherits it and is off too (autocorrect.mjs).
-  try {
-    window.localStorage.setItem('opendoc.autoCapitalise', 'off');
-    window.localStorage.setItem('opendoc.autoFormatLists', 'off');
-    window.localStorage.setItem('opendoc.autocorrect', 'off');
-  } catch (e) { /* storage disabled */ }
-  var host = (window.__host = { ready: false, error: null, settled: false, selection: null, readyAt: null, settledAt: null,
-    autocorrect: { capitalise: 'off', lists: 'off', replace: 'off', dashes: 'off (inherits replace)' } });
+  // Each switch is written and read back on its own. One the page could not
+  // set (storage refused or forgot it) is an error: the page never becomes
+  // ready, and the switches it publishes are the ones read back, not a claim
+  // (CodeAnt on #283, 2026-11-23).
+  var PREFS = { capitalise: 'opendoc.autoCapitalise', lists: 'opendoc.autoFormatLists', replace: 'opendoc.autocorrect' };
+  var applied = {};
+  var unset = [];
+  Object.keys(PREFS).forEach(function (key) {
+    var value = null;
+    try {
+      window.localStorage.setItem(PREFS[key], 'off');
+      value = window.localStorage.getItem(PREFS[key]);
+    } catch (e) { value = null; }
+    applied[key] = value;
+    if (value !== 'off') unset.push(PREFS[key]);
+  });
+  applied.dashes = applied.replace === 'off' ? 'off (inherits replace)' : 'unknown (inherits replace)';
+  var prefsError = unset.length ? 'OpenDoc autocorrect preference not set off: ' + unset.join(', ') : null;
+  if (!prefsError) applied = { capitalise: 'off', lists: 'off', replace: 'off', dashes: 'off (inherits replace)' };
+  var host = (window.__host = { ready: false, error: prefsError, settled: false, selection: null, readyAt: null, settledAt: null,
+    autocorrect: applied });
   var root = document.documentElement;
   var observer = null;
   var readyArmed = false;
