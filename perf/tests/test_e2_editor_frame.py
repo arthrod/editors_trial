@@ -50,7 +50,7 @@ class EditorFrame(unittest.TestCase):
         # C12 not applicable: the canvas/docen ruling, plus OnlyOffice,
         # BetterOffice and OpenDoc (their own entries, not editor-frame rules).
         self.assertEqual(self.out['c12_no_geometry'], ['betteroffice', 'canvas', 'docen', 'onlyoffice', 'opendoc'])
-        probe = (REPO / 'perf/runner/document_probe.mjs').read_text()
+        probe = (REPO / 'perf/runner/document_probe.mjs').read_text() + (REPO / 'perf/runner/find_probe.mjs').read_text()
         # C15's interval rule is armed for OnlyOffice only.
         self.assertIn("intervalReplies: editorId === 'onlyoffice',", probe)
         self.assertIn('if (intervalReplies) {', probe)

@@ -74,6 +74,7 @@ import { bindModelSurfaceClock } from './surface_clock.mjs';
 import { hasDocumentTextSurface, readAndGateDocumentText } from './edit_surface.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { editorPage, frameClockOffsetMs } from './editor_frame.mjs';
+import { INSTALL_FIND_PROBE } from './find_probe.mjs';
 import {
   C12_NO_PARAGRAPH_GEOMETRY,
   LIST_MODEL_PARAGRAPHS,
@@ -2776,138 +2777,7 @@ async function runFind(browser) {
     const observedInterval = await frameInterval(ctx.page);
     await ctx.page.locator(findInputSelector).first().click({ timeout: 5000 });
     await ctx.page.evaluate(
-      ({ countSel, matchSel, expected, query, inputSel, intervalReplies, lateReply }) => {
-        const probe = (window.__findProbe = {
-          first_at: null,
-          complete_at: null,
-          last: '',
-          accepted_text: '',
-          prefix_text: '',
-          prefixTexts: new Set(),
-          scheduling: false,
-          expected: expected,
-          query: query,
-          inputSel: inputSel,
-        });
-        const input = inputSel ? document.querySelector(inputSel) : null;
-        const read = () => {
-          const el = countSel ? document.querySelector(countSel) : null;
-          const text = el ? (el.textContent || '').trim() : '';
-          const matches = matchSel ? document.querySelectorAll(matchSel).length : null;
-          return { text, matches };
-        };
-        const total = (text, matches) => {
-          if (typeof matches === 'number') return matches;
-          const numbers = (text.match(/\d+/g) || []).map(Number);
-          return numbers.length ? Math.max.apply(null, numbers) : null;
-        };
-        // Completion and first-match are the full query's own count text.
-        // A reply scheduled while the input was still a prefix is not that
-        // response, even if it arrives after the input already shows the query.
-        const notePrefix = (text) => {
-          if (!text) return;
-          probe.prefixTexts.add(text);
-          probe.prefix_text = text;
-        };
-        const noteFull = (text) => {
-          if (!text) return;
-          const count = total(text, read().matches);
-          const matchesExpected = probe.expected === null || (count !== null && count === probe.expected);
-          if (!matchesExpected) return;
-          probe.last = text;
-          probe.accepted_text = text;
-          const now = performance.now();
-          if (probe.first_at === null) probe.first_at = now;
-          if (probe.complete_at === null) probe.complete_at = now;
-        };
-        const nativeSetTimeout = window.setTimeout;
-        const origTimeout = nativeSetTimeout.bind(window);
-        // Capture runs before the page's element listener. A microtask queued
-        // there runs before that listener on this input path, so the flag stays
-        // up until bubble. Timers from later tasks are not a search response.
-        const arm = (event) => {
-          if (input && event.target === input) probe.scheduling = true;
-        };
-        const disarm = (event) => {
-          if (!input || event.target !== input) return;
-          const value = input.value;
-          const text = read().text;
-          if (value !== probe.query) notePrefix(text);
-          else if (text && !probe.prefixTexts.has(text)) noteFull(text);
-          probe.scheduling = false;
-        };
-        window.addEventListener('input', arm, true);
-        window.addEventListener('input', disarm, false);
-        window.setTimeout = function (fn, delay) {
-          const extra = Array.prototype.slice.call(arguments, 2);
-          const valueAtSchedule = input && typeof input.value === 'string' ? input.value : '';
-          const fromInput = probe.scheduling === true;
-          if (typeof fn !== 'function') return origTimeout.apply(window, arguments);
-          return origTimeout(function () {
-            const before = read().text;
-            const result = fn.apply(this, extra);
-            const after = read().text;
-            if (!fromInput) return result;
-            if (lateReply && after === before) {
-              // BetterOffice only: its find dialog's input-scheduled timer
-              // runs the search and sets React state, and the status line
-              // renders in a later task. The next change of the count text
-              // after this timer is this timer's reply (full query or prefix).
-              probe.pendingReply = { value: valueAtSchedule, before };
-              return result;
-            }
-            if (valueAtSchedule === probe.query) noteFull(after);
-            else if (after && after !== before) notePrefix(after);
-            return result;
-          }, delay);
-        };
-        // OnlyOffice only (intervalReplies): its find bar starts one setInterval
-        // on the first input and searches whatever the input holds 400 ms after
-        // the last input (web-apps onInputSearchChange, 9.3.2); it never uses
-        // setTimeout for it. A tick of an interval started from an input is a
-        // reply to the text the input holds when that tick runs: the search it
-        // runs reads that text. Other editors keep the setTimeout rule alone.
-        const nativeSetInterval = window.setInterval;
-        if (intervalReplies) {
-          const origInterval = nativeSetInterval.bind(window);
-          window.setInterval = function (fn, delay) {
-            const extra = Array.prototype.slice.call(arguments, 2);
-            const fromInput = probe.scheduling === true;
-            if (typeof fn !== 'function' || !fromInput) return origInterval.apply(window, arguments);
-            return origInterval(function () {
-              const valueAtTick = input && typeof input.value === 'string' ? input.value : '';
-              const before = read().text;
-              const result = fn.apply(this, extra);
-              const after = read().text;
-              // Only a tick that changed the count answers anything; a full-query
-              // reply equal to a prefix reply stays unmeasured, as with setTimeout.
-              if (after && after !== before) {
-                if (valueAtTick === probe.query && !probe.prefixTexts.has(after)) noteFull(after);
-                else if (valueAtTick !== probe.query) notePrefix(after);
-              }
-              return result;
-            }, delay);
-          };
-        }
-        let replyObserver = null;
-        if (lateReply && typeof MutationObserver === 'function') {
-          replyObserver = new MutationObserver(() => {
-            const pending = probe.pendingReply;
-            if (!pending) return;
-            const text = read().text;
-            if (!text || text === pending.before) return;
-            probe.pendingReply = null;
-            if (pending.value === probe.query) noteFull(text);
-            else notePrefix(text);
-          });
-          replyObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
-        }
-        probe.stop = () => {
-          window.setTimeout = nativeSetTimeout;
-          window.setInterval = nativeSetInterval;
-          if (replyObserver) replyObserver.disconnect();
-        };
-      },
+      INSTALL_FIND_PROBE,
       {
         countSel: findCountSelector,
         matchSel: findMatchSelector,
@@ -2930,6 +2800,7 @@ async function runFind(browser) {
           const probe = window.__findProbe;
           if (!probe) return false;
           if (probe.check) probe.check();
+          if (probe.ambiguous_reply) return true;
           return probe.complete_at !== null && probe.complete_at !== undefined;
         },
         null,
@@ -2945,11 +2816,13 @@ async function runFind(browser) {
         first_match_ms: probe.first_at === null || probe.first_at === undefined ? null : probe.first_at,
         search_complete_ms: probe.complete_at === null || probe.complete_at === undefined ? null : probe.complete_at,
         last_count_text: probe.accepted_text || '',
+        ambiguous_reply: probe.ambiguous_reply === true,
       };
       if (probe.stop) probe.stop();
       return out;
     });
     const delta = (value) => (value === null ? null : value - inputPageMs);
+    if (observed.ambiguous_reply) completion = 'ambiguous_reply';
     const eventCompleted = completion === 'event';
     return {
       mode: 'find',
@@ -2968,7 +2841,11 @@ async function runFind(browser) {
       observed_count_text: observed.last_count_text,
       input_page_ms: inputPageMs,
       page_errors: ctx.errors,
-      reason: eventCompleted ? null : 'find widget did not acknowledge the query on its own event',
+      reason: eventCompleted
+        ? null
+        : completion === 'ambiguous_reply'
+          ? 'a count change arrived while a prefix reply and the full query reply were both pending'
+          : 'find widget did not acknowledge the query on its own event',
     };
   } finally {
     await releaseContext(browser, ctx);
