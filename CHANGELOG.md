@@ -7,6 +7,13 @@ re-running the measurement behind it. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/) with the trial still pre-1.0.
 
+The `et-v*` tags name the published bundles (`release/index.jsonl`). From
+0.11.0 on, a bundle tag and the version it publishes carry the same number.
+Before that they drifted: `et-v0.10.1` carried 0.10.0, `et-v0.10.2` 0.10.1,
+`et-v0.10.3` 0.10.2, `et-v0.10.4` 0.10.3 and `et-v0.10.5` 0.10.4, and
+`et-v0.10.6` (2026-11-21) carried the one-page vendor notes that are listed
+under 0.11.0, "Changed", before that version was cut.
+
 ## [Unreleased]
 
 ## [0.13.0] - 2026-11-23
@@ -30,9 +37,9 @@ Report E2 times the five tools added in v0.11.0 in the browser, in a campaign of
 - No pin of the earlier campaign's editors moved; their figures are carried.
 
 ### Measured
-- **Report E2, "The editors measured later"** (BetterOffice, Nutrient, OnlyOffice in CryptPad's build, OpenDoc, react-docx). The same lanes, documents (same SHA-256) and machine type as the earlier campaign (Hugging Face Spaces, shared_guarded, AMD EPYC 7R13, CPU quota 8, Chromium 156.0.8078.80), two seeds on separate virtual machines, 2026-11-22 to 2026-11-23: 18 run folders, 152 jobs (76 per seed), 333 of 560 scheduled cells reproduced. Its own section with seven tables, and Appendix K for its machine, runs, differences and full tables; the report's build refuses a later campaign that differs in lanes, documents or machine type.
+- **Report E2, "The editors measured later"** (BetterOffice, Nutrient, OnlyOffice in CryptPad's build, OpenDoc, react-docx). The same lanes, documents (same SHA-256) and machine type as the earlier campaign (Hugging Face Spaces, shared_guarded, AMD EPYC 7R13, CPU quota 8, Chromium 156.0.8078.80), two seeds on separate virtual machines, 2026-11-22 to 2026-11-23: 20 run folders, 172 jobs (86 per seed), 333 of 560 scheduled cells reproduced. Its own section with seven tables, and Appendix K for its machine, runs, differences and full tables; the report's build refuses a later campaign that differs in lanes, documents or machine type.
 - The typing jobs of OnlyOffice, BetterOffice and OpenDoc were measured again (12 jobs, four per editor): OnlyOffice's with hyphens-to-dashes switched off on its page, BetterOffice's and OpenDoc's after a fix to the harness's page witness. The reruns replace those jobs whole, and the replaced jobs are not counted anywhere in the report (inventory, machine notes, host load). OnlyOffice's rerun ran on a host build that differs by that one line, and its pin is disclosed beside the campaign's.
-- react-docx's scrolling (C10) was measured again on all five documents and both seeds (20 jobs, react-docx alone), after review found the lane's check of what is in view running inside the timed interval on react-docx's page (13 to 15 ms of a 30 to 42 ms sample on the 250,000-word document, on our computer). The check now runs after the first frame; the reruns replace those jobs whole (Appendix K). react-docx's C10 median: 116.8 to 61.5 ms at 250,000 words, 26.8 to 21.9 ms at 50,000 words, 17.9 ms to under one frame on the complex document.
+- react-docx's scrolling (C10) was measured again on all five documents and both seeds (20 jobs, react-docx alone), after review found the lane's check of what is in view running inside the timed interval on react-docx's page (13 to 15 ms of a 30 to 42 ms sample on the 250,000-word document, on our computer). The check now runs after the first frame; the reruns replace react-docx's cells in those jobs, and the four other editors those jobs measured keep their first figures (Appendix K). react-docx's C10 median: 116.8 to 61.5 ms at 250,000 words, 26.8 to 21.9 ms at 50,000 words, 17.9 ms to under one frame on the complex document.
 - Disclosed differences (owner's decisions): OnlyOffice's and OpenDoc's measured pages switch off sentence auto-capitalisation; OnlyOffice's also hyphens-to-dashes; OpenDoc's also automatic lists and its replace-as-you-type table. Nutrient is a viewer loaded from Nutrient's CDN (`nutrient-viewer` 1.25.0, now in the facts as `ver.cdn.nutrient`). C07 judges the caret after the click's own scroll. OnlyOffice's scrolling is read from canvas pixels.
 
 ### Not re-measured

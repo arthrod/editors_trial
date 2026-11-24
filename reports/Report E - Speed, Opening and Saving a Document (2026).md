@@ -270,6 +270,8 @@ Runtimes: bun 1.4.4, node v26.13.0, python 3.12.16.
 - **WebAssembly boundary (C24).** Two editors only, and the per-call figures are below the clock ([#117](https://github.com/arthrod/editors_trial/issues/117)).
 - **Apryse WebViewer.** It has no headless entry point; it runs only in a browser.
 - **react-docx** (in the trial since v0.11.0). It has no headless entry point either: its export runs only in a browser (`harness/reactdocx/headless.mjs` records the attempt).
+- **Nutrient Web SDK** (in the trial since v0.11.0). A viewer, not an editor: it runs only in a browser, where it turns the `.docx` into a PDF to show, and it saves no file. Report E2 has its opening, scrolling and memory.
+- **Univer.** Its open-source packages cannot read or write a `.docx` (`harness/univer/probe.mjs`), so there is nothing to open or save.
 - **Save after an edit.** Every save here follows an unedited load.
 - **A cold file system cache.** Every load reads files the warm-up already brought into memory.
 

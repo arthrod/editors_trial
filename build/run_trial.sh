@@ -23,7 +23,10 @@
 # usage: build/run_trial.sh
 set -uo pipefail
 BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-cd "$BASE"
+cd "$BASE" || exit 1
+# Handed down absolute: the scripts below read TRIAL_ROOT again from here, where a relative
+# value would point below the checkout.
+export TRIAL_ROOT="$PWD"
 bash build/run_all.sh
 bash build/run_second_pass.sh
 python3 build/score_all.py

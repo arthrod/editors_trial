@@ -170,7 +170,7 @@ The README opens with a language switcher that lists English and twenty-one tran
 - It kept seven of the ten hostile test files in what it saved, and set a named size limit on one (Report D, grade {{bomb.genoffice.grade:.2f}}).
 - Pasting and undoing slow down in a very long document: 2.8 s to paste and 2.6 s to undo at 250,000 words (Report E2, pasting and undoing).
 - It draws a labelled placeholder with the diagram's texts where Word leaves the diagram's band blank (Report C §3).
-- It is not on the sister sites. It ships as an Electron desktop application with nothing on npm, so it could not be run there (editors site README, "Not in the bench").
+- It ships as an Electron desktop application with nothing on npm. editors.benchmarks.law runs it only since 2026-11-21, as the trial builds its Docs application, a stand-in for the desktop it expects (editors site README, "Four more, through the editors trial's demo builds").
 
 ## eigenpal
 
@@ -248,7 +248,7 @@ The README states a coverage claim of its own, that all 2,273 elements and 1,969
 - Microsoft Word refuses the file it saves from the test document. Five links inside the file point at nothing, and the chart never draws. Rewriting those five links makes Word open it (Report B §3.6; Report A2 §5.4).
 - It cannot read its own output back: the second save is not valid XML (main report, second pass {{p2.officeopen.weighted}}%).
 - It kept seven of the ten hostile test files in what it saved and ran out of stack on an eighth, the lowest grade in Report D's table, shared with Docen (Report D, grade {{bomb.officeopen.grade:.2f}}).
-- It has nothing to show on screen, so no browser measurement applies to it (Report C §2.6; Report E2, Appendix F).
+- It has no editing surface, so no browser criterion applies to it (Report C §2.6; Report E2, Appendix F); editors.benchmarks.law, since 2026-11-21, shows only an outline of what its parser read (editors site README).
 
 ## Docen
 
@@ -332,7 +332,7 @@ DOCX and ODT export accept an uploaded template; the built-in defaults are named
 - Microsoft Word refuses the file it saves, which breaks {{xsd.fidus.real}} rules of the format's schema (Report B §3.3).
 - On screen the test document shows no table, chart, text box, equation or embedded object, and a "please wait" cover stays over the page (Report C §2.11).
 - Tracked changes are not kept: the importer skips insertions, deletions and moves (main report, per-repository findings).
-- It is not in the browser speed report or on the sister sites, because it runs only as an application with its own server (Report E2, Appendix F).
+- It is not in the browser speed report, because it runs only as an application with its own server (Report E2, Appendix F). editors.benchmarks.law runs the trial's build of its document library since 2026-11-21, and there its exporter failed on every sample (editors site README).
 
 ## canvas-editor
 
@@ -388,7 +388,7 @@ An MCP path lets Claude or ChatGPT read documents the account can open and edit 
 - Its saved file is 2 pages in Word where the original is 6. Sections, page borders and columns do not survive (Report C §6.1; Report B §3.5).
 - On screen it shows the wrong text in the text box, moves footnotes to the end of the document and shows no comment (Report C §3).
 - It ran out of stack on one hostile test file and kept another (Report D).
-- It is not in the browser speed report or on the sister sites, because it runs only as an application with its own servers (Report E2, Appendix F; editors site README, "Not in the bench").
+- It is not in the browser speed report, because it runs only as an application with its own servers (Report E2, Appendix F). editors.benchmarks.law runs only the trial's build of its editor and conversion, since 2026-11-21 (editors site README).
 
 ## Apryse
 

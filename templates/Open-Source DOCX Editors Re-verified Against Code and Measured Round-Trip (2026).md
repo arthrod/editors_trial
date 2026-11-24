@@ -4,7 +4,7 @@ This edition does what the previous one could not: it **downloads every editor's
 
 **Added in v0.11.0 (2026-11-21).** Four more tools were run through the same corpus: **react-docx** ({{rt.reactdocx.weighted:.1f}}%), **OpenDoc** ({{rt.opendoc.weighted:.1f}}%), **BetterOffice** ({{rt.betteroffice.weighted:.1f}}% through its document model; {{rt.betteroffice-editor.weighted:.1f}}% through an unedited editor session) and **OnlyOffice in CryptPad's browser build**, which wrote no output because its converter did not return. **Univer** was probed and has no `.docx` path in its open-source packages. They are in the tables below and in §12 of the per-repository findings. No earlier editor was run again and none of their figures moved. **In v0.11.2 (2026-11-22) the source of react-docx, OpenDoc and BetterOffice was read**, at the versions measured: they are ranked in the executive summary, have rows in the master comparison table, and §12 now says why each result comes out as it does.
 
-**Headline result:** three participants survive the corpus with zero failed checks — **SuperDoc ({{rt.superdoc.weighted:g}}%)**, **Docxodus ({{rt.docxodus.weighted:g}}%)** and **eigenpal ({{rt.eigenpal.weighted:g}}%)**. **GenOffice** scores {{rt.genoffice.weighted:.1f}}%, **Folio** {{rt.folio.weighted:.1f}}%. **office-open** and **Docen** regenerate the package and silently drop revision metadata. **WordCraft** keeps the chart, SmartArt and OLE payload too — as the six editors above also do — but loses the revision model. **Fidus Writer**, **canvas-editor + plugin** and **docs.plus** are not round-trip tools in any meaningful sense.
+**Headline result:** of the participants measured before v0.11.0, three survive the corpus with zero failed checks — **SuperDoc ({{rt.superdoc.weighted:g}}%)**, **Docxodus ({{rt.docxodus.weighted:g}}%)** and **eigenpal ({{rt.eigenpal.weighted:g}}%)**. **GenOffice** scores {{rt.genoffice.weighted:.1f}}%, **Folio** {{rt.folio.weighted:.1f}}%. **office-open** and **Docen** regenerate the package and silently drop revision metadata. **WordCraft** keeps the chart, SmartArt and OLE payload too — as the six editors above also do — but loses the revision model. **Fidus Writer**, **canvas-editor + plugin** and **docs.plus** are not round-trip tools in any meaningful sense.
 
 A correction to the previous report's headline: it ranked **eigenpal first on OOXML fidelity**. Measured, SuperDoc, Docxodus and eigenpal share first place with no failed check.
 
@@ -78,29 +78,29 @@ The three tools added in v0.11.0 were read in v0.11.2, outside that table. react
 
 The first eleven were chosen by reading the DOCX-editor landscape and keeping what could be driven headlessly. The twelfth — **Plate.js** — was added after a systematic sweep, and the sweep is worth recording because of what it found.
 
-The search used the GitHub API over three queries and three topic listings (`docx-editor`, `word-processor`, `ooxml`), sorted by stars, plus a direct star-count query for every candidate that survived. The result set, with the star counts **measured on {{stars.date}}** rather than quoted from a search snippet:
+The search used the GitHub API over three queries and three topic listings (`docx-editor`, `word-processor`, `ooxml`), sorted by stars, plus a direct star-count query for every candidate that survived. The result set, with the star counts **measured on {{stars.date}}** rather than quoted from a search snippet. The last column is the sweep's answer; a tool added to the trial since then says when:
 
 | Project | ★ | Language | Licence | In this trial? |
 |---|---:|---|---|---|
 | `storytold/wordcraft` | **{{stars.storytold/wordcraft:,}}** | Rust | Apache-2.0 | yes — #8 |
 | `udecode/plate` | **{{stars.udecode/plate:,}}** | TypeScript | `NOASSERTION` | **yes — #12, added 2026-10-30** |
 | `genspark-ai/genoffice` | **{{stars.genspark-ai/genoffice:,}}** | TypeScript | Apache-2.0 | yes — #4 |
+| `ONLYOFFICE/DocumentServer` | {{stars.ONLYOFFICE/DocumentServer:,}} | Shell/C++ | AGPL-3.0 | no at the sweep — a full office server, not a library; its round trip is a document-server pipeline, not an embeddable editor API; **its editor, in CryptPad's build, added in v0.11.0** |
 | `dolanmiu/docx` | {{stars.dolanmiu/docx:,}} | TypeScript | MIT | no — a **generator**, not an editor: it writes .docx from a JS model and cannot read one |
-| `ONLYOFFICE/DocumentServer` | {{stars.ONLYOFFICE/DocumentServer:,}} | Shell/C++ | AGPL-3.0 | no — a full office server, not a library; its round trip is a document-server pipeline, not an embeddable editor API |
 | `Hufe921/canvas-editor` | **{{stars.Hufe921/canvas-editor:,}}** | TypeScript | MIT | yes — #9 |
 | `superdoc/docx-editor` | **{{stars.superdoc/docx-editor:,}}** | TypeScript | AGPL-3.0 | yes — #1 |
 | `fiduswriter/fiduswriter` | **{{stars.fiduswriter/fiduswriter}}** | TypeScript | AGPL-3.0 | yes — #10 |
 | `stffnb/edentext` | {{stars.stffnb/edentext}} | TypeScript | — | no — a browser word processor; no library round-trip API |
 | `eigenpal/docx-editor` | **{{stars.eigenpal/docx-editor}}** | TypeScript | Apache-2.0 | yes — #5 |
-| `openooxml/betteroffice` | {{stars.openooxml/betteroffice}} | Rust | — | no — not yet runnable headlessly against the corpus |
+| `openooxml/betteroffice` | {{stars.openooxml/betteroffice}} | Rust | — | no at the sweep — not yet runnable headlessly against the corpus; **added in v0.11.0** (document model and unedited editor session) |
 | `Hufe921/canvas-editor-plugin` | **{{stars.Hufe921/canvas-editor-plugin}}** | TypeScript | MIT | yes — #9 (with canvas-editor) |
-| `JSv4/Docxodus` | {{stars.JSv4/Docxodus}} | C# | MIT | no — .NET/WASM; a different toolchain from the rest of the trial |
+| `JSv4/Docxodus` | {{stars.JSv4/Docxodus}} | C# | MIT | no at the sweep — .NET/WASM, a different toolchain from the rest of the trial; **added the next day** (2026-10-31) |
 | `docs-plus/docs.plus` | **{{stars.docs-plus/docs.plus}}** | TypeScript | MIT | yes — #11 |
 | `CasualOffice/docs` | {{stars.CasualOffice/docs}} | TypeScript | — | no — self-hosted server with a co-editing stack; no headless round-trip API |
 | `DemoMacro/docen` | **{{stars.DemoMacro/docen}}** | TypeScript | MIT | yes — #7 |
 | `ant981228/cardmirror` | {{stars.ant981228/cardmirror}} | TypeScript | — | no — a policy-debate tool, not a general DOCX editor |
 | `DemoMacro/office-open` | **{{stars.DemoMacro/office-open}}** | TypeScript | MIT | yes — #6 |
-| `CasualOffice/opendoc` | {{stars.CasualOffice/opendoc}} | Rust | Apache-2.0 | no — a new, small engine |
+| `CasualOffice/opendoc` | {{stars.CasualOffice/opendoc}} | Rust | Apache-2.0 | no at the sweep — a new, small engine; **added in v0.11.0** |
 | `stella/folio` | **{{stars.stella/folio}}** | TypeScript | Apache-2.0 | yes — #3 |
 
 **The star counts do not predict anything about fidelity.** The three projects tied for first have **{{stars.superdoc/docx-editor:,}}★** (SuperDoc), **{{stars.eigenpal/docx-editor}}★** (eigenpal) and **{{stars.JSv4/Docxodus}}★** (Docxodus). Folio, fifth at {{rt.folio.weighted:.1f}}%, has **{{stars.stella/folio}}★** — fewer than a hundred people have starred it, and it loses two checks. The two most-starred projects in the trial, WordCraft and Plate, score **{{rt.wordcraft.weighted:.1f}}%** and **{{rt.plate.weighted:.1f}}%**. Meanwhile the projects with the most stars of all are mostly *not* editors: `ONLYOFFICE/DocumentServer` (7,066★) is a server and `dolanmiu/docx` (5,984★) is a generator.
